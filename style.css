@@ -1,0 +1,37 @@
+/* This file is released under CC0 */
+html,
+body
+{
+    height: 95%;
+    background: black;
+    color: white;
+}
+
+input
+{
+    width: 95%;
+    background: black;
+    color: white;
+    border: 0px;
+}
+
+#logo
+{
+    background-color: white;
+    color: black;
+}
+
+#content
+{
+    min-height: 100%;
+}
+
+.error
+{
+    color: red;
+}
+
+.footerlink
+{
+    text-decoration: none;
+}
