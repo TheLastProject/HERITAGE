@@ -246,7 +246,7 @@ var parseInput = function(originalinput) {
     // Core functions
     switch (input[0]) {
         case "help":
-            show("Type 'load &lt;gamename/URL&gt;' to load a game. An example game is available under the name 'example' (type 'load example' to load it).</p><p>When in-game, you can look around using 'look', go somewhere using 'go', take something using 'take' or 'grab' and check your inventory using 'inventory'.</p><p>That is all for the introduction.</p><p>Remember, games can register any commands themselves. 'look at' a poster, 'sit on' a chair, experiment and have fun!", "html");
+            show("Type 'load &lt;gamename/URL&gt;' to load a game. An example game is available under the name 'example' (type 'load example' to load it).</p><p>When in-game, you can look around using 'look', go somewhere using 'go', take something using 'take' or 'grab' and check your inventory using 'inventory'.</p><p>That is all for the introduction.</p><p>Remember, games can register any commands themselves. 'look at' posters, 'sit on' a chair, experiment and have fun!", "html");
             return;
         case "load":
             // Start initializing the chosen game

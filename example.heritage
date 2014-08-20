@@ -25,7 +25,7 @@ item(paper):
     on_look_at: It's a blank piece of paper.
     allow_take: true
 
-item(poster):
+item(posters):
     on_look_at: You see two posters, one for Battle of Britain Memorial, the other for Cloudkicker. Nice music.
 
 item(pen):
