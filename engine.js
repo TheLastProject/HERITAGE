@@ -59,6 +59,14 @@ $(document).ready( function() {
         }
     });
 
+    // Ensure input bar remains focused
+    $("body").keypress( function(event) {
+        if (!$("#inputbar").is(":focus") && event.key.length == 1) {
+            $("#inputbar").focus();
+            $("#inputbar").val($("#inputbar").val() + event.key);
+        }
+    });
+
     // Check if a game URL has already been passed (example.com/HERITAGE/?url_to_load)
     var toload = window.location.search.substring(1);
     if (toload) {
@@ -274,7 +282,7 @@ var parseInput = function(originalinput) {
         case "go":
             if (!playing) { break; }
             if (input.length > 1) {
-                var movefail = userMove(input[1], false);
+                var movefail = userMove(input.slice(1).join(" "), false);
                 if (!movefail) {
                     if (rooms[currentlocation]["first_enter"] && (roomhistory.indexOf(currentlocation) == -1)) {
                         show(changeVariableValue(formatVariableText(rooms[currentlocation]["first_enter"])));
@@ -295,8 +303,8 @@ var parseInput = function(originalinput) {
             if (!playing) { break; }
             var errcode = userTake(input, false);
             switch (errcode) {
-                case "1": show("Error: Incorrect argument count. Correct usage: 'take <itemname>'.", "error"); return
-                case "2": break; // It starts with pick but it's not "pick up"
+                case 1: show("Error: Incorrect argument count. Correct usage: 'take <itemname>'.", "error"); return;
+                case 2: break; // It starts with pick but it's not "pick up"
                 default: return;
             };
         case "look":
