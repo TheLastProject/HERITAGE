@@ -69,6 +69,13 @@ item(friend.1):
                    "Let's go upstairs, play some games?", she asks invitingly, leaving the room before you can answer.
                    #(friend_house_access=1)#
 
+action(say yes):
+    succeed: She smiles at you.
+                   "You're worried, aren't you? Don't worry, hun, I'm sure it'll be fine", she says, pausing for a bit.
+                   "Let's go upstairs, play some games?", she asks invitingly, leaving the room before you can answer.
+                   #(friend_house_access=1)#
+    require_here: friend.1
+
 item(friend.2):
     on_look_at: She smiles at you.
     on_say_goodbye_to: "Bye, hun! Take care!" #(said_goodbye_friend=1)#
