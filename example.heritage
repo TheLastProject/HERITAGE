@@ -80,6 +80,10 @@ item(friend.2):
     on_look_at: She smiles at you.
     on_say_goodbye_to: "Bye, hun! Take care!" #(said_goodbye_friend=1)#
 
+action(say goodbye):
+    succeed: "Bye, hun! Take care!" #(said_goodbye_friend=1)#
+    require_here: friend.2
+
 item(computer.3):
     on_look_at: It looks pretty fancy.
 
@@ -196,7 +200,7 @@ room(10.2.-1):
                  $(require_here:friend.1;Your friend is sitting on the couch, looking at you.)$$(!require_here:friend.1;The couch is empty.)$
 
                  There is an exit south, leading to the hallway.
-    items: $(equal:friend_house_access,0;friend.1)$
+    items: $(equals:friend_house_access,0;friend.1)$
     exits: south
 
 room(10.1.0):
