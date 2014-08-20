@@ -340,7 +340,10 @@ var parseInput = function(originalinput) {
                 }
             }
         }
+    };
+    if (toshow) {
         show(toshow);
+        return;
     };
 
     // Check for specific item functions
