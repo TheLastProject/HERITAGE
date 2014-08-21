@@ -209,7 +209,7 @@ room(10.1.0):
 
                  You play for a good hour, until your phone notifies you of a new message...
                  #(ready_for_phone=1)#
-    description: You are in your friend's bedroom. She is playing some games.
+    description: You are in your friend's bedroom. She is playing some games. Your friend's hallway is downstairs.
     items: friend.2, computer.3
     exits: down|downstairs
 
