@@ -33,13 +33,13 @@ $(document).ready( function() {
 
     $("#inputbar").keydown( function(event) {
         // Let the user use the up/down keys to go through command history
-        if (event.key == "Up") {
+        if (event.keyCode == 38) { // Up
             event.preventDefault();
             if (commandhistory && commandposition) {
                 commandposition -= 1;
                 $("#inputbar").val(commandhistory[commandposition]);
             }
-        } else if (event.key == "Down") {
+        } else if (event.keyCode == 40) { // Down
             event.preventDefault();
             if (commandhistory && commandposition < commandhistory.length) {
                 commandposition += 1;
@@ -59,7 +59,7 @@ $(document).ready( function() {
         }
     });
 
-    // Ensure input bar remains focused
+    // Ensure input bar takes all input by ensuring focus on input
     $("body").keydown( function(event) {
         $("#inputbar").focus();
     });
