@@ -23,15 +23,15 @@
 
 $(document).ready( function() {
     // Register empty command history command
-    var commandhistory = [];
-    var commandposition = 0;
+    window.commandhistory = [];
+    window.commandposition = 0;
 
     // Focus on the input bar
     document.getElementById("inputbar").focus();
 
     playing = false;
 
-    $("#inputbar").keypress( function(event) {
+    $("#inputbar").keydown( function(event) {
         // Let the user use the up/down keys to go through command history
         if (event.key == "Up") {
             event.preventDefault();
@@ -60,11 +60,8 @@ $(document).ready( function() {
     });
 
     // Ensure input bar remains focused
-    $("body").keypress( function(event) {
-        if (!$("#inputbar").is(":focus") && event.key.length == 1) {
-            $("#inputbar").focus();
-            $("#inputbar").val($("#inputbar").val() + event.key);
-        }
+    $("body").keydown( function(event) {
+        $("#inputbar").focus();
     });
 
     // Check if a game URL has already been passed (example.com/HERITAGE/?url_to_load)
