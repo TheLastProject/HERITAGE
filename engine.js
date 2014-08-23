@@ -64,12 +64,73 @@ $(document).ready( function() {
         $("#inputbar").focus();
     });
 
+    // Save the session on unload
+    window.addEventListener("beforeunload", function( event ) {
+        if (!playing) { return; }
+        show("Saving session...");
+        saveSession();
+        show("Saving session... Done!");
+    });
+
     // Check if a game URL has already been passed (example.com/HERITAGE/?url_to_load)
     var toload = window.location.search.substring(1);
     if (toload) {
         parseInput("load " + toload);
     }
+
+    // Warn about saved sessions
+    if (supports_html_storage && localStorage.length > 0) {
+        show($("#message").html() + 'Saved sessions found. Type "loadsave" to load a saved session.', "html");
+    }
 });
+
+var supports_html_storage = function () {
+    try {
+        return 'localStorage' in window && window['localStorage'] !== null;
+    } catch (e) {
+        return false;
+    }
+};
+
+var saveSession = function() {
+    if (!gameinfo["Title"]) { gameinfo["Title"] = "Unknown Game" }
+    if (!gameinfo["Author"]) { gameinfo["Author"] = "Unknown Author" }
+    var session = {
+        'savetime' : (new Date).getTime(),
+        'commandhistory' : commandhistory,
+        'gameinfo' : gameinfo,
+        'variables' : variables,
+        'rooms' : rooms,
+        'roomhistory' : roomhistory,
+        'items' : items,
+        'actions' : actions,
+        'exits' : exits,
+        'inventory' : inventory,
+        'currentlocation' : currentlocation
+    };
+    localStorage.setItem(localStorage.length, JSON.stringify(session));
+};
+
+var loadSession = function(id) {
+    var restore_session = localStorage[id - 1];
+    if (!restore_session) {
+        show("Could not find session with id " + id);
+        return;
+    }
+    var restore_session = JSON.parse(localStorage[id - 1]);
+    commandhistory = restore_session["commandhistory"];
+    gameinfo = restore_session["gameinfo"];
+    variables = restore_session["variables"];
+    rooms = restore_session["rooms"];
+    roomhistory = restore_session["roomhistory"];
+    items = restore_session["items"];
+    actions = restore_session["actions"];
+    exits = restore_session["exits"];
+    inventory = restore_session["inventory"];
+    currentlocation = restore_session["currentlocation"];
+    localStorage.removeItem(id - 1);
+    parseInput("start");
+};
 
 var escapeHTML = function( s ) {
     return String(s).replace(/&(?!\w+;)/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
@@ -97,7 +158,7 @@ var init = function(filename) {
     // Init necessary vars
     playing = false;
     currentsetting = "";
-    gameinfo = [];
+    gameinfo = {};
     variables = {"game_over": 0};
     rooms = {};
     roomhistory = [];
@@ -107,27 +168,26 @@ var init = function(filename) {
     inventory = [];
     currentmode = null;
     $.get(filename, function( gamedata ) {
-            show("Parsing game...");
-            gamedata = gamedata.split('\n');
-            $.each(gamedata, function(){
-                var gameline = this.replace(/\/\*.*?\*\//g, "").trim(); // Trim the line and remove all comments
-                if (!gameline && currentmode == "info") { return; }
-                newmode = initGetMode(gameline, currentmode);
-                if (currentmode && (currentmode == newmode)) { parseForMode(gameline, currentmode); }
-                currentmode = newmode;
-                });
-            // Done initializing, display info!
-            gamemessage = "";
-            for (info in gameinfo) {
-            gamemessage += escapeHTML(gameinfo[info]) + "<br />";
-            };
-            show(gamemessage + "<br /><a href='" + filename + "'>Game source (right click to download)</a><br /><br />Type start to start", "html");
-            }, "text").fail(function() { show("Failed to load game files (AJAX request failed)", "error") });
+        show("Parsing game...");
+        gamedata = gamedata.split('\n');
+        $.each(gamedata, function(){
+            var gameline = this.replace(/\/\*.*?\*\//g, "").trim(); // Trim the line and remove all comments
+            newmode = initGetMode(gameline, currentmode);
+            if (currentmode && (currentmode == newmode)) { parseForMode(gameline, currentmode); }
+            currentmode = newmode;
+        });
+        currentlocation = "0.0.0";
+        // Done initializing, display info!
+        gamemessage = "";
+        for (info in gameinfo) {
+            gamemessage += escapeHTML(info + ": " + gameinfo[info]) + "<br />";
+        };
+        show(gamemessage + "<br /><a href='" + filename + "'>Game source (right click to download)</a><br /><br />Type start to start", "html");
+    }, "text").fail(function() { show("Failed to load game files (AJAX request failed)", "error") });
 };
 
 var startgame = function() {
     playing = true;
-    currentlocation = "0.0.0";
     userLook();
 };
 
@@ -194,7 +254,13 @@ var returnSettingAndValue = function(line) {
 var parseForMode = function(line, currentmode) {
     switch (currentmode[0]) {
         case "info":
-            gameinfo.push(line);
+            var linedata = returnSettingAndValue(line);
+            if (!gameinfo[linedata[0]]) {
+                gameinfo[linedata[0]] = "";
+            } else {
+                gameinfo[linedata[0]] += "\n";
+            }
+            gameinfo[linedata[0]] += linedata[1];
             break;
         case "room":
             var linedata = returnSettingAndValue(line);
@@ -263,13 +329,28 @@ var parseInput = function(originalinput) {
                  show("Error: Incorrect argument count. Correct usage: 'load <gamename/URL>'.", "error");
             };
             return;
+        case "loadsave":
+            // Restore a saved session
+            if (playing) { break; }
+            if (localStorage.length == 0) { show("There are no sessions in progress to load"); return; }
+            if (input.length > 1) {
+                loadSession(input[1]);
+            } else {
+                var toshow = ["To restore a session, type 'loadsave' followed by the session number.<br />"];
+                for (savegame in localStorage) {
+                    var sessiondata = JSON.parse(localStorage[savegame]);
+                    toshow.push(toshow.length + ". " + sessiondata["gameinfo"]["Title"] + " - " + sessiondata["gameinfo"]["Author"] + " (" + sessiondata["savetime"] + ")");
+                }
+                show(toshow.join("<br />"), "html");
+            }
+            return;
         case "start":
             if (input.length == 1 && !playing) {
                 if (typeof(variables) != "undefined") {
                     variables["game_over"] = 0;
                 };
                 startgame();
-                return
+                return;
             };
             break;
         case "inventory":

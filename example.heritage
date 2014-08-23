@@ -146,7 +146,7 @@ room(0.1.0):
     description: You are in the hallway on the second floor.
 
                  There is a stair leading downstairs, a door to the south which leads to your room and a door to the west which leads to your mother's office.
-    exits: north, west, down|downstairs, south
+    exits: west, down|downstairs, south
 
 room(-1.1.0):
     /* Mom's office */
