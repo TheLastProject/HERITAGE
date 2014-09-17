@@ -738,20 +738,37 @@ var userMove = function(direction, silent) {
 };
 
 var calculateNewLocation = function(direction) {
+    // Split location into X, Y, Z
     newlocation = currentlocation.split(".");
     switch (direction) {
         case "north":
-            newlocation[1] = parseInt(newlocation[1]); newlocation[1] += 1; break;
+            newlocation[1] = parseInt(newlocation[1]); newlocation[1]++; break;
         case "east":
-            newlocation[0] = parseInt(newlocation[0]); newlocation[0] += 1; break;
+            newlocation[0] = parseInt(newlocation[0]); newlocation[0]++; break;
         case "south":
-            newlocation[1] = parseInt(newlocation[1]); newlocation[1] -= 1; break;
+            newlocation[1] = parseInt(newlocation[1]); newlocation[1]--; break;
         case "west":
-            newlocation[0] = parseInt(newlocation[0]); newlocation[0] -= 1; break;
+            newlocation[0] = parseInt(newlocation[0]); newlocation[0]--; break;
         case "up":
-            newlocation[2] = parseInt(newlocation[2]); newlocation[2] += 1; break;
+            newlocation[2] = parseInt(newlocation[2]); newlocation[2]++; break;
         case "down":
-            newlocation[2] = parseInt(newlocation[2]); newlocation[2] -= 1; break;
+            newlocation[2] = parseInt(newlocation[2]); newlocation[2]--; break;
+        case "northeast":
+            newlocation[1] = parseInt(newlocation[1]); newlocation[1]++;
+            newlocation[0] = parseInt(newlocation[0]); newlocation[0]++;
+            break;
+        case "northwest":
+            newlocation[1] = parseInt(newlocation[1]); newlocation[1]++;
+            newlocation[0] = parseInt(newlocation[0]); newlocation[0]--;
+            break;
+        case "southeast":
+            newlocation[1] = parseInt(newlocation[1]); newlocation[1]--;
+            newlocation[0] = parseInt(newlocation[0]); newlocation[0]++;
+            break;
+        case "southwest":
+            newlocation[1] = parseInt(newlocation[1]); newlocation[1]--;
+            newlocation[0] = parseInt(newlocation[0]); newlocation[0]--;
+            break;
     };
     return newlocation.join(".");
 };
