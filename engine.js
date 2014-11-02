@@ -363,7 +363,7 @@ var parseInput = function(originalinput) {
                 var movefail = userMove(input.slice(1).join(" "), false);
                 if (!movefail) {
                     if (rooms[currentlocation]["first_enter"] && (roomhistory.indexOf(currentlocation) == -1)) {
-                        show(changeVariableValue(formatVariableText(rooms[currentlocation]["first_enter"])));
+                        show(changeVarValue(formatVariableText(rooms[currentlocation]["first_enter"])));
                     } else {
                         userLook();
                     };
@@ -416,12 +416,12 @@ var parseInput = function(originalinput) {
             if (conditionsSatisfied(actions[action])) {
                 executeActions(actions[action]);
                 if (actions[action]["succeed"]) {
-                    var addtotoshow = changeVariableValue(formatVariableText(actions[action]["succeed"]));
+                    var addtotoshow = changeVarValue(formatVariableText(actions[action]["succeed"]));
                     if (addtotoshow) { toshow += "\n" + addtotoshow; }
                 }
             } else {
                 if (actions[action]["fail"]) {
-                    var addtotoshow = changeVariableValue(formatVariableText(actions[action]["fail"]));
+                    var addtotoshow = changeVarValue(formatVariableText(actions[action]["fail"]));
                     if (addtotoshow) { toshow += "\n" + addtotoshow; }
                 }
             }
@@ -457,7 +457,7 @@ var parseInput = function(originalinput) {
             var tofind = "on_" + itemhandler.join("_");
             var itemfind = itemname + iteminstance;
             if (items[itemfind] && items[itemfind][tofind]) {
-                show(changeVariableValue(formatVariableText(items[itemfind][tofind])));
+                show(changeVarValue(formatVariableText(items[itemfind][tofind])));
                 return;
             } else {
                 show("I don't know how to " + itemhandler.join(" ") + " the " + inputitemname + ".");
@@ -492,13 +492,13 @@ var conditionsSatisfied = function(objectid) {
                 };
                 break;
             case "equals":
-                if (variables[conditions[0]] != conditions[1]) { return false; };
+                if (getVarValue(conditions[0]) != conditions[1]) { return false; };
                 break;
             case "less_than":
-                if (variables[conditions[0]] > conditions[1]) { return false; };
+                if (getVarValue(conditions[0]) > conditions[1]) { return false; };
                 break;
             case "more_than":
-                if (variables[conditions[0]] < conditions[1]) { return false; };
+                if (getVarValue(conditions[0]) < conditions[1]) { return false; };
                 break;
         };
     };
@@ -545,7 +545,7 @@ var executeActions = function(objectid) {
 };
 
 var userLook = function() {
-    description = changeVariableValue(formatVariableText(rooms[currentlocation]["description"]));
+    description = changeVarValue(formatVariableText(rooms[currentlocation]["description"]));
     show(description);
 };
 
@@ -581,7 +581,18 @@ var formatVariableText = function(text) {
     return text.trim();
 };
 
-var changeVariableValue = function(text) {
+var getVarValue = function(variable) {
+    // Returns the value of real and pseudo-variables
+    // Available pseudo-variables:
+    // _random: returns a random number from 1 through 100 (inclusive)
+    if (variable == "_random") {
+      return Math.random() * (100 - 1) + 1;
+    };
+
+    return variables[variable];
+};
+
+var changeVarValue = function(text) {
     // Increase, decrease or set the value of a variable
     while (text.indexOf("#(") > -1 && text.indexOf(")#") > -1) {
         var beginning = text.indexOf("#(");
@@ -613,7 +624,7 @@ var changeVariableValue = function(text) {
 };
 
 var getRoomItems = function(roomname) {
-    var itemlist = formatVariableText(changeVariableValue(rooms[roomname]["items"])).replace(/ /g,'').split(",");
+    var itemlist = formatVariableText(changeVarValue(rooms[roomname]["items"])).replace(/ /g,'').split(",");
     var founditems = [];
     for (item in itemlist) {
         item = itemlist[item];
@@ -649,7 +660,7 @@ var removeRoomItem = function(roomname, itemname) {
 
 var getRoomExits = function(roomname) {
     // Synonyms are added as syn:synonym_name:original_name exits
-    var exitlist = formatVariableText(changeVariableValue(rooms[roomname]["exits"])).replace(/ /g,'').split(",");
+    var exitlist = formatVariableText(changeVarValue(rooms[roomname]["exits"])).replace(/ /g,'').split(",");
     var foundexits = [];
     for (exit in exitlist) {
         exit = exitlist[exit];
