@@ -137,7 +137,7 @@ var escapeHTML = function( s ) {
 };
 
 var show = function(message, type) {
-    if (typeof(variables) != "undefined" && variables["game_over"]) { type = "game_over"; }
+    if (typeof(variables) != "undefined" && variables["_game_over"]) { type = "game_over"; }
     if (type != "html") {
         var message = escapeHTML(message).split("\n").join("<br />");
         if (message.substr(0,6) == "<br />") {
@@ -159,7 +159,7 @@ var init = function(filename) {
     playing = false;
     currentsetting = "";
     gameinfo = {};
-    variables = {"game_over": 0};
+    variables = {"_game_over": 0, "_turn": 0};
     rooms = {};
     roomhistory = [];
     items = {};
@@ -309,32 +309,51 @@ var parseForMode = function(line, currentmode) {
     };
 };
 
-var parseInput = function(originalinput) {
+var parseInput = function(input) {
+    /* This function receives the input, and passes it on to another function 
+     * which will return 0 on success, and non-zero on fail.
+     * If the input was succesful, and we're playing a match, we increment the 
+     * current turn pseudo-variable by one.
+     */
     $( "#inputbar" ).val("");
-    var originalinput = originalinput.trim();
-    var input = originalinput.split(" ");
+    var failure = parseInputReal(input);
+    if(!failure) {
+      variables["_turn"] += 1;
+    };
+};
+
+var parseInputReal = function(input) {
+    /* This function parses the input and returns an error code.
+     * 0 = success
+     * 1 = succesful command that should not be count as a turn
+     * 2 = invalid command
+     * 3 = invalid parameters
+     * 4 = executing command changes nothing
+     */
+    var input = input.trim();
+    var splitinput = input.split(" ");
 
     // Core functions
-    switch (input[0]) {
+    switch (splitinput[0]) {
         case "help":
             show("Type 'load &lt;gamename/URL&gt;' to load a game. An example game is available under the name 'example' (type 'load example' to load it).</p><p>When in-game, you can look around using 'look', go somewhere using 'go', take something using 'take' or 'grab' and check your inventory using 'inventory'.</p><p>That is all for the introduction.</p><p>Remember, games can register any commands themselves. 'look at' posters, 'sit on' a chair, experiment and have fun!", "html");
-            return;
+            return 1;
         case "load":
             // Start initializing the chosen game
-            if (input.length > 1) {
-                var toload = input.splice(1).join("%20");
+            if (splitinput.length > 1) {
+                var toload = splitinput.splice(1).join("%20");
                 if (toload[-9,toload.length] != ".heritage") { toload += ".heritage"; };
                 init(toload);
             } else {
                  show("Error: Incorrect argument count. Correct usage: 'load <gamename/URL>'.", "error");
             };
-            return;
+            return 1;
         case "loadsave":
             // Restore a saved session
             if (playing) { break; }
-            if (localStorage.length == 0) { show("There are no sessions in progress to load"); return; }
-            if (input.length > 1) {
-                loadSession(input[1]);
+            if (localStorage.length == 0) { show("There are no sessions in progress to load"); return 1; }
+            if (splitinput.length > 1) {
+                loadSession(splitinput.join("%20"));
             } else {
                 var toshow = ["To restore a session, type 'loadsave' followed by the session number.<br />"];
                 for (savegame in localStorage) {
@@ -343,67 +362,74 @@ var parseInput = function(originalinput) {
                 }
                 show(toshow.join("<br />"), "html");
             }
-            return;
+            return 1;
         case "start":
-            if (input.length == 1 && !playing) {
+            if (splitinput.length == 1 && !playing) {
                 if (typeof(variables) != "undefined") {
-                    variables["game_over"] = 0;
+                    variables["_game_over"] = 0;
                 };
                 startgame();
-                return;
+                return 1;
             };
             break;
         case "inventory":
             if (!playing) { break; }
             userInventory();
-            return;
+            return 1;
         case "go":
             if (!playing) { break; }
-            if (input.length > 1) {
-                var movefail = userMove(input.slice(1).join(" "), false);
-                if (!movefail) {
-                    if (rooms[currentlocation]["first_enter"] && (roomhistory.indexOf(currentlocation) == -1)) {
-                        show(changeVarValue(formatVariableText(rooms[currentlocation]["first_enter"])));
-                    } else {
-                        userLook();
-                    };
-                    if (roomhistory.indexOf(currentlocation == -1)) {
-                        roomhistory.push(currentlocation);
-                    };
-                };
-            } else {
+            if (splitinput.length < 1) {
                 show("Error: Incorrect argument count. Correct usage: 'go <direction>'.", "error");
+                return 3;
             };
-            return;
+
+            var movefail = userMove(splitinput.slice(1).join(" "), false);
+            if (!movefail) {
+                if (rooms[currentlocation]["first_enter"] && (roomhistory.indexOf(currentlocation) == -1)) {
+                    show(changeVarValue(formatVariableText(rooms[currentlocation]["first_enter"])));
+                } else {
+                    userLook();
+                };
+                if (roomhistory.indexOf(currentlocation == -1)) {
+                    roomhistory.push(currentlocation);
+                };
+            };
+            return 0;
         case "take":
         case "grab":
         case "pick":
             if (!playing) { break; }
-            var errcode = userTake(input, false);
+            var errcode = userTake(splitinput, false);
             switch (errcode) {
-                case 1: show("Error: Incorrect argument count. Correct usage: 'take <itemname>'.", "error"); return;
+                case 0: return 0;
+                case 1: show("Error: Incorrect argument count. Correct usage: 'take <itemname>'.", "error"); return 3;
                 case 2: break; // It starts with pick but it's not "pick up"
-                default: return;
+                default: return 3;
             };
         case "look":
             if (!playing) { break; }
             // Ensure the user is only looking. Items should have their own on_look_at handler
-            if (input.length == 1) {
+            if (splitinput.length == 1) {
                 userLook();
-                return;
+                return 1;
             };
             break;
+        case "wait":
+            if (!playing) { break; }
+            show("You wait...");
+            return 0;
     };
 
     if (!playing) {
-        if (typeof(variables) == "undefined" || !variables["game_over"]) {
+        if (typeof(variables) == "undefined" || !variables["_game_over"]) {
             show("Invalid command.");
         };
-        return;
+        return 1;
     };
 
     // Check for actions
     var toshow = "";
+    var success = false;
     for (action in actions) {
         var action = action;
         var dotsplit = action.lastIndexOf(".");
@@ -412,8 +438,9 @@ var parseInput = function(originalinput) {
         } else {
             var actionname = action;
         }
-        if (actionname == originalinput) {
+        if (actionname == input) {
             if (conditionsSatisfied(actions[action])) {
+                success = true;
                 executeActions(actions[action]);
                 if (actions[action]["succeed"]) {
                     var addtotoshow = changeVarValue(formatVariableText(actions[action]["succeed"]));
@@ -429,7 +456,11 @@ var parseInput = function(originalinput) {
     };
     if (toshow) {
         show(toshow);
-        return;
+        if (success) {
+            return 0;
+        } else {
+            return 4;
+        }
     };
 
     // Check for specific item functions
@@ -452,22 +483,23 @@ var parseInput = function(originalinput) {
             var iteminstance = "";
         }
         if (!inputitemname) { var inputitemname = itemname; };
-        if (input.slice(input.length-itemname.length).join("_") == inputitemname.join("_") ) {
-            var itemhandler = input.slice(0,input.length-itemname.length);
+        if (splitinput.slice(splitinput.length-itemname.length).join("_") == splitinputitemname.join("_") ) {
+            var itemhandler = splitinput.slice(0,splitinput.length-itemname.length);
             var tofind = "on_" + itemhandler.join("_");
             var itemfind = itemname + iteminstance;
             if (items[itemfind] && items[itemfind][tofind]) {
                 show(changeVarValue(formatVariableText(items[itemfind][tofind])));
-                return;
+                return 0;
             } else {
                 show("I don't know how to " + itemhandler.join(" ") + " the " + inputitemname + ".");
-                return;
+                return 4;
             }
         }
     };
 
     // Generic error
-    show("I don't know how to " + originalinput + ".");
+    show("I don't know how to " + input + ".");
+    return 1;
 };
 
 var conditionsSatisfied = function(objectid) {
@@ -582,9 +614,11 @@ var formatVariableText = function(text) {
 };
 
 var getVarValue = function(variable) {
-    // Returns the value of real and pseudo-variables
-    // Available pseudo-variables:
-    // _random: returns a random number from 1 through 100 (inclusive)
+    /* Returns the value of real and pseudo-variables
+     * Available pseudo-variables:
+     * _random: returns a random number from 1 through 100 (inclusive)
+     * _turn: get the current turn
+     */
     if (variable == "_random") {
       return Math.random() * (100 - 1) + 1;
     };
@@ -785,6 +819,14 @@ var calculateNewLocation = function(direction) {
 };
 
 var userTake = function(input) {
+    /* Let the user take an item
+     * Return values:
+     * 0 = item taken
+     * 1 = missing parameter
+     * 2 = function called incorrectly
+     * 3 = can't take item
+     * 4 = can't see item
+     */
     if (input.length > 2 && input[0] == "pick" && input[1] != "up") { return 2; };
     if (input.length == 1) { return 1; };
     itemname = input[input.length-1];
@@ -794,10 +836,13 @@ var userTake = function(input) {
             inventory.push(itemname);
             removeRoomItem(currentlocation, itemname);
             show("You take the " + itemname + ".");
+            return 0;
         } else {
             show("I can't take this " + itemname + ".");
+            return 3;
         };
     } else {
         show("I don't see any " + itemname + ".");
+        return 4;
     };
 };
