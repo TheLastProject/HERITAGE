@@ -325,7 +325,7 @@ var parseInput = function(input) {
 var parseInputReal = function(input) {
     /* This function parses the input and returns an error code.
      * 0 = success
-     * 1 = succesful command that should not be count as a turn
+     * 1 = succesful command that should not be counted as a turn
      * 2 = invalid command
      * 3 = invalid parameters
      * 4 = executing command changes nothing
@@ -386,7 +386,7 @@ var parseInputReal = function(input) {
             var movefail = userMove(splitinput.slice(1).join(" "), false);
             if (!movefail) {
                 if (rooms[currentlocation]["first_enter"] && (roomhistory.indexOf(currentlocation) == -1)) {
-                    show(changeVarValue(formatVariableText(rooms[currentlocation]["first_enter"])));
+                    show(format(rooms[currentlocation]["first_enter"]));
                 } else {
                     userLook();
                 };
@@ -443,12 +443,12 @@ var parseInputReal = function(input) {
                 success = true;
                 executeActions(actions[action]);
                 if (actions[action]["succeed"]) {
-                    var addtotoshow = changeVarValue(formatVariableText(actions[action]["succeed"]));
+                    var addtotoshow = format(actions[action]["succeed"]);
                     if (addtotoshow) { toshow += "\n" + addtotoshow; }
                 }
             } else {
                 if (actions[action]["fail"]) {
-                    var addtotoshow = changeVarValue(formatVariableText(actions[action]["fail"]));
+                    var addtotoshow = format(actions[action]["fail"]);
                     if (addtotoshow) { toshow += "\n" + addtotoshow; }
                 }
             }
@@ -488,7 +488,7 @@ var parseInputReal = function(input) {
             var tofind = "on_" + itemhandler.join("_");
             var itemfind = itemname + iteminstance;
             if (items[itemfind] && items[itemfind][tofind]) {
-                show(changeVarValue(formatVariableText(items[itemfind][tofind])));
+                show(format(items[itemfind][tofind]));
                 return 0;
             } else {
                 show("I don't know how to " + itemhandler.join(" ") + " the " + inputitemname + ".");
@@ -577,40 +577,56 @@ var executeActions = function(objectid) {
 };
 
 var userLook = function() {
-    description = changeVarValue(formatVariableText(rooms[currentlocation]["description"]));
+    description = format(rooms[currentlocation]["description"]);
     show(description);
 };
 
-var formatVariableText = function(text) {
-    // Remove or add text depending on certain status
-    while (text.indexOf("$(") > -1 && text.indexOf(")$") > -1) {
-        var beginning = text.indexOf("$(");
-        var ending = text.indexOf(")$");
-        var tocheck = text.substr(beginning).split(")$")[0];
-        var requirement = tocheck.substr(2).split(";")[0];
-        var requirement_type = requirement.split(":")[0];
-        var requirement = requirement.split(":")[1];
-        var addedtext = tocheck.substr(4+requirement_type.length+requirement.length).split(")$")[0];
-        var tocheck = {};
-        if (requirement_type[0] == "!") {
-            var requirement_type = requirement_type.substr(1);
-            tocheck[requirement_type] = requirement.replace(/ /g,'');
-            if (!conditionsSatisfied(tocheck)) {
-                var text = text.substr(0,beginning) + addedtext + text.substr(ending+2);
-            } else {
-                var text = text.substr(0,beginning) + text.substr(ending+2);
-            };
-        } else {
-            tocheck[requirement_type] = requirement.replace(/ /g,'');
-            if (conditionsSatisfied(tocheck)) {
-                var text = text.substr(0,beginning) + addedtext + text.substr(ending+2);
-            } else {
-                var text = text.substr(0,beginning) + text.substr(ending+2);
-            };
+var format = function(text) {
+    /* Format and calculate text and its values
+     * This format finds the most inner check, and then calculates outwards.
+     * Example order:
+     * $(Fourth #(Third @(Second !(First)! )@ #) )$
+     */
+    var minindex = 0;
+    var characters = "!@#$";
+
+    while(true) {
+        var checkon = text.substr(minindex);
+
+        var closingposition = checkon.indexOf(")");
+        if (closingposition == -1) {
+            break;
         };
+
+        var character = checkon[closingposition + 1];
+        if (characters.indexOf(character) == -1) {
+            minindex = closingposition+1;
+            continue;
+        };
+
+        var start = checkon.substr(0, closingposition - 1).lastIndexOf(character + "(");
+
+        if (start == -1) {
+            break;
+        };
+
+        var manipulatetext = checkon.substr(start + 2, closingposition - 2 - start);
+
+        console.log("Text: " + text);
+        console.log("Manipulate: " + manipulatetext);
+
+        switch(character) {
+            case "!": var newtext = echoVar(manipulatetext); break;
+            case "@": var newtext = calculateVarValue(manipulatetext); break;
+            case "#": var newtext = changeVarValue(manipulatetext); break;
+            case "$": var newtext = formatVariableText(manipulatetext); break;
+        };
+
+        text = text.substr(0, start) + newtext + text.substr(closingposition + 2);
+        minindex = 0;
     };
 
-    return text.trim();
+    return text;
 };
 
 var getVarValue = function(variable) {
@@ -626,39 +642,92 @@ var getVarValue = function(variable) {
     return variables[variable];
 };
 
-var changeVarValue = function(text) {
-    // Increase, decrease or set the value of a variable
-    while (text.indexOf("#(") > -1 && text.indexOf(")#") > -1) {
-        var beginning = text.indexOf("#(");
-        var ending = text.indexOf(")#");
-        var tocheck = text.substr(beginning).split(")#")[0];
-        text = text.substr(0,beginning) + text.substr(ending+2);
-        if (tocheck.indexOf("=") > -1) {
-            var symbol = "=";
-        } else if (tocheck.indexOf("+") > -1) {
-            var symbol = "+";
-        } else if (tocheck.indexOf("-") > -1) {
-            var symbol = "-";
-        } else {
-            console.log("Invalid statement: #(" + tocheck + ")#");
-            var symbol = null;
+var calculateNewValue = function(variable, operator, value) {
+    switch(operator) {
+        case "+": return variable += value;
+        case "-": return variable -= value;
+        case "/": return variable /= value;
+        case "*": return variable *= value;
+        case "%": return variable %= value;
+        default: return variable;
+    };
+};
+
+var getOperator = function(text) {
+    var operators = ["=", "+", "-", "/", "*", "%"]
+    operators.forEach(function(operator) {
+        if (text.indexOf(operator) > -1) {
+            return operator;
         };
-        if (symbol) {
-            var variable = tocheck.substr(2).split(symbol)[0];
-            var value = tocheck.split(symbol)[1].split(")#")[0];
-            switch (symbol) {
-                case "=": variables[variable] = value; break;
-                case "+": variables[variable] += value; break;
-                case "-": variables[variable] -= value; break;
-            };
+    });
+
+    return null;
+};
+
+var echoVar = function(text) {
+    return variables[text];
+};
+
+var calculateVarValue = function(text) {
+    /* Return the result of an operation on a variable, without changing the 
+     * value of the original variable
+     */
+    var operator = getOperator(text);
+
+    if (!operator) {
+        console.log("Invalid statement: @(" + tocheck + ")@");
+        return "";
+    };
+
+    var variable = text.split(operator)[0];
+    var value = text.split(operator)[1];
+    return calculateNewValue(variable, operator, value);
+};
+
+var changeVarValue = function(text) {
+    /* Change the value of a variable
+     * This function overwrites the original variable
+     */
+    var operator = getOperator(text);
+
+    if (!operator) {
+        console.log("Invalid statement: #(" + tocheck + ")#");
+        return "";
+    };
+
+    var variable = text.split(operator)[0];
+    var value = text.split(operator)[1];
+    variables[variable] = calculateNewValue(variable, operator, value);
+    
+    return "";
+};
+
+var formatVariableText = function(text) {
+    // Remove or add text depending on certain status
+    var requirement = text.split(";")[0];
+    var requirement_type = requirement.split(":")[0];
+    var requirement = requirement.split(":")[1];
+    var text_to_add = text.substr(2+requirement_type.length+requirement.length);
+    var tocheck = {};
+    var text = "";
+    if (requirement_type[0] == "!") {
+        var requirement_type = requirement_type.substr(1);
+        tocheck[requirement_type] = requirement.replace(/ /g,'');
+        if (!conditionsSatisfied(tocheck)) {
+            text = text_to_add;
+        };
+    } else {
+        tocheck[requirement_type] = requirement.replace(/ /g,'');
+        if (conditionsSatisfied(tocheck)) {
+            text = text_to_add;
         };
     };
 
-    return text.trim();
+    return text;
 };
 
 var getRoomItems = function(roomname) {
-    var itemlist = formatVariableText(changeVarValue(rooms[roomname]["items"])).replace(/ /g,'').split(",");
+    var itemlist = format(rooms[roomname]["items"]).replace(/ /g,'').split(",");
     var founditems = [];
     for (item in itemlist) {
         item = itemlist[item];
@@ -694,7 +763,7 @@ var removeRoomItem = function(roomname, itemname) {
 
 var getRoomExits = function(roomname) {
     // Synonyms are added as syn:synonym_name:original_name exits
-    var exitlist = formatVariableText(changeVarValue(rooms[roomname]["exits"])).replace(/ /g,'').split(",");
+    var exitlist = format(rooms[roomname]["exits"]).replace(/ /g,'').split(",");
     var foundexits = [];
     for (exit in exitlist) {
         exit = exitlist[exit];
