@@ -358,7 +358,7 @@ var parseInputReal = function(input) {
             if (playing) { break; }
             if (localStorage.length == 0) { show("There are no sessions in progress to load"); return 1; }
             if (splitinput.length > 1) {
-                loadSession(splitinput.join("%20"));
+                loadSession(splitinput[1]);
             } else {
                 var toshow = ["To restore a session, type 'loadsave' followed by the session number.<br />"];
                 for (savegame in localStorage) {
