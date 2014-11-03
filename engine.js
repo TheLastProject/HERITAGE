@@ -72,17 +72,22 @@ $(document).ready( function() {
         show("Saving session... Done!");
     });
 
+    // Show home screen
+    showHome();
+
     // Check if a game URL has already been passed (example.com/HERITAGE/?url_to_load)
     var toload = window.location.search.substring(1);
     if (toload) {
         parseInput("load " + toload);
     }
-
-    // Warn about saved sessions
-    if (supports_html_storage && localStorage.length > 0) {
-        show($("#message").html() + 'Saved sessions found. Type "loadsave" to load a saved session.', "html");
-    }
 });
+
+var showHome = function() {
+    $("#message").html('<p>Welcome to HERITAGE alpha.</p><p>Heritage Equals Retro Interpreting Text Adventure Game Engine</p><p>Type "help" for help.</p>');
+    if (supports_html_storage && localStorage.length > 0) {
+        show($("#message").html() + 'Saved sessions found. Type "loadsave" to load a saved session, or "clearsaves" to delete all sessions in progress.', "html");
+    }
+};
 
 var supports_html_storage = function () {
     try {
@@ -363,6 +368,11 @@ var parseInputReal = function(input) {
                 show(toshow.join("<br />"), "html");
             }
             return 1;
+        case "clearsaves":
+            // Delete all saves
+            if (playing) { break; }
+            localStorage.clear();
+            showHome();
         case "start":
             if (splitinput.length == 1 && !playing) {
                 if (typeof(variables) != "undefined") {
