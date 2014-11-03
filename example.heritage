@@ -220,4 +220,4 @@ room(999.999.999):
                  Whatever your story is, you can make it great, as long as you believe in yourself.
 
                  Goodbye, for now, and thanks for playing.
-                 #(game_over=1)#
+                 #(_game_over=1)#
