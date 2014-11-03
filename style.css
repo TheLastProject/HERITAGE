@@ -35,3 +35,8 @@ input
 {
     text-decoration: none;
 }
+
+a:visited
+{
+    color:blue;
+}
