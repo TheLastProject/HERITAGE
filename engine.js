@@ -494,7 +494,7 @@ var parseInputReal = function(input) {
         }
         if (!inputitemname) { var inputitemname = itemname; };
         if (splitinput.slice(-itemname.length).join("_") == inputitemname.join("_") ) {
-            var itemhandler = splitinput.slice(0, splitinput.length-itemname.length);
+            var itemhandler = splitinput.slice(0, splitinput.length-inputitemname.length);
             var tofind = "on_" + itemhandler.join("_");
             var itemfind = inputitemname.join("_") + iteminstance;
             if (items[itemfind] && items[itemfind][tofind]) {
@@ -594,33 +594,45 @@ var userLook = function() {
 var format = function(text) {
     /* Format and calculate text and its values
      * This format finds the most inner check, and then calculates outwards.
+     * 
+     * However, we only take care of #(changeVarValue)# in the second round, 
+     * because this action is destructive and should not be executed unless 
+     * we're sure all conditions are satisfied.
+     *
      * Example order:
-     * $(Fourth #(Third @(Second !(First)! )@ #) )$
+     * $(Third #(Fourth @(Second !(First)! )@ #) )$
      */
     var minindex = 0;
-    var characters = "!@#$";
+    var characters = ["!@$", "#"];
+    var round = 0;
 
     while(true) {
         var checkon = text.substr(minindex);
 
         var closingposition = checkon.indexOf(")");
         if (closingposition == -1) {
-            break;
+            if (round == 0) {
+                minindex = 0;
+                round = 1;
+                continue;
+            } else {
+                break;
+            };
         };
 
         var character = checkon[closingposition + 1];
-        if (characters.indexOf(character) == -1) {
+        if (characters[round].indexOf(character) == -1) {
             minindex = closingposition+1;
             continue;
         };
 
-        var start = checkon.substr(0, closingposition - 1).lastIndexOf(character + "(");
+        var start = text.substr(0, minindex + closingposition).lastIndexOf(character + "(");
 
         if (start == -1) {
             break;
         };
 
-        var manipulatetext = checkon.substr(start + 2, closingposition - 2 - start);
+        var manipulatetext = text.substr(start + 2, minindex + closingposition - start - 2);
 
         switch(character) {
             case "!": var newtext = echoVar(manipulatetext); break;
@@ -629,7 +641,7 @@ var format = function(text) {
             case "$": var newtext = formatVariableText(manipulatetext); break;
         };
 
-        text = text.substr(0, start) + newtext + text.substr(closingposition + 2);
+        text = text.substr(0, start) + newtext + text.substr(minindex + closingposition + 2);
         minindex = 0;
     };
 
@@ -656,19 +668,23 @@ var calculateNewValue = function(variable, operator, value) {
         case "/": return variable /= value;
         case "*": return variable *= value;
         case "%": return variable %= value;
-        default: return variable;
+        default: return value;
     };
 };
 
 var getOperator = function(text) {
-    var operators = ["=", "+", "-", "/", "*", "%"]
+    /* I wanted to return the operator in the for loop here, otherwise null, 
+     * but JavaScript decided that readable code is a bad thing.
+     */
+    var operators = ["=", "+", "-", "/", "*", "%"];
+    var result = null;
     operators.forEach(function(operator) {
         if (text.indexOf(operator) > -1) {
-            return operator;
+            result = operator;
         };
     });
 
-    return null;
+    return result;
 };
 
 var echoVar = function(text) {
@@ -695,6 +711,7 @@ var changeVarValue = function(text) {
     /* Change the value of a variable
      * This function overwrites the original variable
      */
+
     var operator = getOperator(text);
 
     if (!operator) {
