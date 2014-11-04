@@ -482,26 +482,26 @@ var parseInputReal = function(input) {
             // Translate synonym
             var itemdata = item.substr(4).split(":");
             var item = itemdata[1];
-            var inputitemname = itemdata[0].split(" ");
+            var inputitemname = itemdata[0].split("_");
         }
         if (item.indexOf(".") > -1) {
             var itemdata = item.split(".");
-            var itemname = itemdata[0].split(" ");
+            var itemname = itemdata[0].split("_");
             var iteminstance = "." + itemdata[1];
         } else {
-            var itemname = item.split(" ");
+            var itemname = item.split("_");
             var iteminstance = "";
         }
         if (!inputitemname) { var inputitemname = itemname; };
-        if (splitinput.slice(splitinput.length-itemname.length).join("_") == splitinputitemname.join("_") ) {
-            var itemhandler = splitinput.slice(0,splitinput.length-itemname.length);
+        if (splitinput.slice(-itemname.length).join("_") == inputitemname.join("_") ) {
+            var itemhandler = splitinput.slice(0, splitinput.length-itemname.length);
             var tofind = "on_" + itemhandler.join("_");
-            var itemfind = itemname + iteminstance;
+            var itemfind = inputitemname.join("_") + iteminstance;
             if (items[itemfind] && items[itemfind][tofind]) {
                 show(format(items[itemfind][tofind]));
                 return 0;
             } else {
-                show("I don't know how to " + itemhandler.join(" ") + " the " + inputitemname + ".");
+                show("I don't know how to " + itemhandler.join(" ") + " the " + inputitemname.join(" ") + ".");
                 return 4;
             }
         }
@@ -621,9 +621,6 @@ var format = function(text) {
         };
 
         var manipulatetext = checkon.substr(start + 2, closingposition - 2 - start);
-
-        console.log("Text: " + text);
-        console.log("Manipulate: " + manipulatetext);
 
         switch(character) {
             case "!": var newtext = echoVar(manipulatetext); break;
