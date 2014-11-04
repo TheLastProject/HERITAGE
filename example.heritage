@@ -69,7 +69,7 @@ item(friend.1):
                    "Let's go upstairs, play some games?", she asks invitingly, leaving the room before you can answer.
                    #(friend_house_access=1)#
 
-action(say yes):
+action(say_yes):
     succeed: She smiles at you.
                    "You're worried, aren't you? Don't worry, hun, I'm sure it'll be fine", she says, pausing for a bit.
                    "Let's go upstairs, play some games?", she asks invitingly, leaving the room before you can answer.
@@ -80,7 +80,7 @@ item(friend.2):
     on_look_at: She smiles at you.
     on_say_goodbye_to: "Bye, hun! Take care!" #(said_goodbye_friend=1)#
 
-action(say goodbye):
+action(say_goodbye):
     succeed: "Bye, hun! Take care!" #(said_goodbye_friend=1)#
     require_here: friend.2
 
@@ -88,19 +88,19 @@ item(computer.3):
     on_look_at: It looks pretty fancy.
 
 /* Actions are what has been classicly regarded to as verbs. You define a specific action, the requirements and the result */
-action(write note|use pen):
+action(write_note|use_pen):
     succeed: You take a deep breath and start writing down your feelings on the piece of paper, creating a note for your parents.
     require_inventory: paper, pen
     lose: paper
     gain: note
 
-action(put note on table|leave note|drop note|put down note):
+action(put_note_on_table|leave_note|drop_note|put_down_note):
     succeed: You put the note on the table.
     require_inventory: note
     require_here: table
     drop: note
 
-action(read text message|read message|read messages|check phone|check message|check messages):
+action(read_text_message|read_message|read_messages|check_phone|check_message|check_messages):
     succeed: Mom: Please come home #(can_go_home=1)#
     fail: I don't have any unread messages
     equals: ready_for_phone, 1

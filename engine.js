@@ -448,7 +448,7 @@ var parseInputReal = function(input) {
         } else {
             var actionname = action;
         }
-        if (actionname == input) {
+        if (actionname == input.replace(/ /g, "_")) {
             if (conditionsSatisfied(actions[action])) {
                 success = true;
                 executeActions(actions[action]);
@@ -682,7 +682,7 @@ var calculateVarValue = function(text) {
     var operator = getOperator(text);
 
     if (!operator) {
-        console.log("Invalid statement: @(" + tocheck + ")@");
+        console.log("Invalid statement: @(" + text + ")@");
         return "";
     };
 
@@ -698,7 +698,7 @@ var changeVarValue = function(text) {
     var operator = getOperator(text);
 
     if (!operator) {
-        console.log("Invalid statement: #(" + tocheck + ")#");
+        console.log("Invalid statement: #(" + text + ")#");
         return "";
     };
 
