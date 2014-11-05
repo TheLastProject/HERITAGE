@@ -721,6 +721,11 @@ var changeVarValue = function(text) {
 
     var variable = text.split(operator)[0];
     var value = text.split(operator)[1];
+    if (["_random", "_turn"].indexOf(variable) > -1) {
+        console.log("Cannot write to internal variable " + variable);
+        return "";
+    };
+
     variables[variable] = calculateNewValue(variable, operator, value);
     
     return "";
