@@ -1,7 +1,7 @@
 info():
-    Title: Example Game
-    Author: HERITAGE
-    License: CC0
+    title: Example Game
+    author: HERITAGE
+    license: CC0
 
 /* List of custom variables */
 /* This is mostly intended for power users, most simple games won't need these */

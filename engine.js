@@ -98,8 +98,8 @@ var supports_html_storage = function () {
 };
 
 var saveSession = function() {
-    if (!gameinfo["Title"]) { gameinfo["Title"] = "Unknown Game" }
-    if (!gameinfo["Author"]) { gameinfo["Author"] = "Unknown Author" }
+    if (!gameinfo["title"]) { gameinfo["title"] = "Unknown Game" }
+    if (!gameinfo["author"]) { gameinfo["author"] = "Unknown Author" }
     var session = {
         'savetime' : (new Date).getTime(),
         'commandhistory' : commandhistory,
