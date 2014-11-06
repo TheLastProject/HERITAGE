@@ -142,7 +142,7 @@ var escapeHTML = function( s ) {
 };
 
 var show = function(message, type) {
-    if (typeof(variables) != "undefined" && variables["_game_over"]) { type = "game_over"; }
+    if (typeof(variables) != "undefined" && getVarValue("_game_over")) { type = "game_over"; }
     if (type != "html") {
         var message = escapeHTML(message).split("\n").join("<br />");
         if (message.substr(0,6) == "<br />") {
@@ -202,9 +202,9 @@ var initGetMode = function(line, currentmode) {
     } else if (line.substr(0,4) == "var(") {
         varandvalue = line.substr(4).split(")")[0];
         if (varandvalue.indexOf(",") > -1) {
-            variables[varandvalue.split(",")[0]] = varandvalue.split(",")[1];
+            setVarValue(varandvalue.split(",")[0], varandvalue.split(",")[1]);
         } else {
-            variables[varandvalue] = 0;
+            setVarValue(varandvalue, 0);
         };
     } else if (line.substr(0,5) == "room(") {
         var roomlocation = line.substr(5).split(")")[0];
@@ -323,7 +323,7 @@ var parseInput = function(input) {
     $( "#inputbar" ).val("");
     var failure = parseInputReal(input);
     if(!failure) {
-      variables["_turn"] += 1;
+      setVarValue("_turn") += 1;
     };
 };
 
@@ -376,7 +376,7 @@ var parseInputReal = function(input) {
         case "start":
             if (splitinput.length == 1 && !playing) {
                 if (typeof(variables) != "undefined") {
-                    variables["_game_over"] = 0;
+                    setVarValue("_game_over", 0);
                 };
                 startgame();
                 return 1;
@@ -431,7 +431,7 @@ var parseInputReal = function(input) {
     };
 
     if (!playing) {
-        if (typeof(variables) == "undefined" || !variables["_game_over"]) {
+        if (typeof(variables) == "undefined" || !getVarValue("_game_over")) {
             show("Invalid command.");
         };
         return 1;
@@ -652,19 +652,40 @@ var getVarValue = function(variable) {
     /* Returns the value of real and pseudo-variables
      * Available pseudo-variables:
      * _random: returns a random number from 1 through 100 (inclusive)
+     * _yesno: returns either 0 or 1
      * _turn: get the current turn
      */
-    if (variable == "_random") {
-      return parseInt(Math.random() * (100 - 1) + 1);
+    switch(variable) {
+        case "_random": return parseInt(Math.random() * (100 - 1) + 1);
+        case "_yesno": return parseInt(Math.random());
+    };
+
+    if (parseInt(variables[variable]) != variables[variable] && !variables[variables[variable]] && variables[variable][0] != '"' && variables[variable][variable.length-1] != '"') {
+        console.log('Variable ' + variable + 
+        ' refers to non-existent variable ' + variables[variable] + 
+        '. Did you mean to set it to "' + variables[variable] + 
+        '"? Returning 0.');
+        return 0;
     };
 
     return variables[variable];
 };
 
+var setVarValue = function(variable, value) {
+    variables[variable] = value;
+};
+
 var calculateNewValue = function(variable, operator, value) {
-    if (!parseInt(value)) {
+    if (parseInt(value) != value) {
         value = getVarValue(value);
     };
+
+    if (operator != "+" && value[0] == '"' && value[value.length-1] == '"') {
+        console.log("Cannot calculate on string value. Variable: " + variable 
+        + ". Operator: " + operator + ". Value: " + value);
+        return value;
+    };
+
     switch(operator) {
         case "+": return variable += value;
         case "-": return variable -= value;
@@ -691,7 +712,7 @@ var getOperator = function(text) {
 };
 
 var echoVar = function(text) {
-    return variables[text];
+    return getVarValue(text);
 };
 
 var calculateVarValue = function(text) {
@@ -729,7 +750,7 @@ var changeVarValue = function(text) {
         return "";
     };
 
-    variables[variable] = calculateNewValue(variable, operator, value);
+    setVarValue(variable, calculateNewValue(variable, operator, value));
     
     return "";
 };
