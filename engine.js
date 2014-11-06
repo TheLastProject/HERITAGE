@@ -655,13 +655,16 @@ var getVarValue = function(variable) {
      * _turn: get the current turn
      */
     if (variable == "_random") {
-      return Math.random() * (100 - 1) + 1;
+      return parseInt(Math.random() * (100 - 1) + 1);
     };
 
     return variables[variable];
 };
 
 var calculateNewValue = function(variable, operator, value) {
+    if (!parseInt(value)) {
+        value = getVarValue(value);
+    };
     switch(operator) {
         case "+": return variable += value;
         case "-": return variable -= value;
