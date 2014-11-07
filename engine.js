@@ -323,7 +323,7 @@ var parseInput = function(input) {
     $( "#inputbar" ).val("");
     var failure = parseInputReal(input);
     if(!failure) {
-      setVarValue("_turn") += 1;
+      setVarValue("_turn", getVarValue("_turn") + 1);
     };
 };
 
@@ -760,23 +760,60 @@ var formatVariableText = function(text) {
     var requirement = text.split(";")[0];
     var requirement_type = requirement.split(":")[0];
     var requirement = requirement.split(":")[1];
-    var text_to_add = text.substr(2+requirement_type.length+requirement.length);
+    var text = text.substr(2+requirement_type.length+requirement.length);
+    var else_position = findSingle(text, "|");
+    if (else_position > -1) {
+        var text_if_false = text.substr(else_position + 1);
+        var text_if_true = text.substr(0, else_position);
+    } else {
+        var text_if_false = "";
+        var text_if_true = text;
+    };
     var tocheck = {};
-    var text = "";
     if (requirement_type[0] == "!") {
         var requirement_type = requirement_type.substr(1);
         tocheck[requirement_type] = requirement.replace(/ /g,'');
         if (!conditionsSatisfied(tocheck)) {
-            text = text_to_add;
+            text = text_if_true;
+        } else {
+            text = text_if_false;
         };
     } else {
         tocheck[requirement_type] = requirement.replace(/ /g,'');
         if (conditionsSatisfied(tocheck)) {
-            text = text_to_add;
+            text = text_if_true;
+        } else {
+            text = text_if_false;
         };
     };
 
-    return text;
+    return text.replace(/\|\|/g,'|');
+};
+
+var findSingle = function(string, seperator) {
+    /* Finds the first single instance of seperator.
+     *
+     * Example:
+     * seperator: |
+     * This is || a seperated | string | yeah
+     *                        ^ Return this position
+     */
+    var index = 0;
+    while(true) {
+        var check = string.substr(index);
+
+        var found_at = check.indexOf(seperator);
+
+        if (found_at == -1) {
+            return -1;
+        };
+
+        if (check[found_at+1] != seperator) {
+            return found_at + index;
+        };
+
+        index = found_at + 2;
+    };
 };
 
 var getRoomItems = function(roomname) {

@@ -58,8 +58,7 @@ item(tv):
 
 item(doorbell):
     on_look_at: It looks antique.
-    on_ring: $(equals:door_bell_rang,0;You ring the doorbell and your friend opens the door. 'Come in', she says, before walking to the living room.#(door_bell_rang=1)#)$
-             $(equals:door_bell_rang,1;There is no need to ring the doorbell again.)$
+    on_ring: $(equals:door_bell_rang,0;You ring the doorbell and your friend opens the door. 'Come in', she says, before walking to the living room.#(door_bell_rang=1)#|There is no need to ring the doorbell again.)$
 
 item(friend.1):
     on_look_at: She smiles at you.
