@@ -348,7 +348,7 @@ var parseInputReal = function(input) {
     // Core functions
     switch (splitinput[0]) {
         case "help":
-            show("Type 'load &lt;gamename/URL&gt;' to load a game. An example game is available under the name 'example' (type 'load example' to load it).</p><p>When in-game, you can look around using 'look', go somewhere using 'go', take something using 'take' or 'grab' and check your inventory using 'inventory'.</p><p>That is all for the introduction.</p><p>Remember, games can register any commands themselves. 'look at' posters, 'sit on' a chair, experiment and have fun!", "html");
+            show("Type 'load &lt;gamename/URL&gt;' to load a game. An example game is available under the name 'example' (type 'load example' to load it).</p><p>When in-game, you can look around using 'look', go somewhere using 'go', take something using 'take' or 'grab' and check your inventory using 'inventory'.</p><p>That is all for the introduction.</p><p>Remember, games can register any commands themselves. 'examine' posters, 'sit on' a chair, experiment and have fun!", "html");
             return 1;
         case "load":
             // Start initializing the chosen game
@@ -431,6 +431,10 @@ var parseInputReal = function(input) {
             if (!playing) { break; }
             show("You wait...");
             return 0;
+        case "x":
+            splitinput[0] = "examine";
+            input = "examine " + input.substr(2);
+            break;
     };
 
     if (!playing) {
