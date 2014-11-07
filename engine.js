@@ -380,6 +380,14 @@ var parseInputReal = function(input) {
             splitinput[1] = "northwest";
             only_direction = true;
             break;
+        case "up":
+            splitinput[1] = "up";
+            only_direction = true;
+            break;
+        case "down":
+            splitinput[1] = "down";
+            only_direction = true;
+            break;
     };
 
     if (only_direction) {
