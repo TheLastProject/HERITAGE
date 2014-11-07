@@ -323,7 +323,7 @@ var parseInput = function(input) {
     $( "#inputbar" ).val("");
     var failure = parseInputReal(input);
     if(!failure) {
-      setVarValue("_turn", getVarValue("_turn") + 1);
+        setVarValue("_turn", getVarValue("_turn") + 1);
     };
 };
 
@@ -343,6 +343,48 @@ var parseInputReal = function(input) {
         setVarValue("_write_to", 0);
         parseInputReal("look");
         return 1;
+    };
+
+    var only_direction = false;
+    switch (input) {
+        // Shortcuts for directions
+        case "n":
+            splitinput[1] = "north";
+            only_direction = true;
+            break;
+        case "ne":
+            splitinput[1] = "northeast";
+            only_direction = true;
+            break;
+        case "e":
+            splitinput[1] = "east";
+            only_direction = true;
+            break;
+        case "se":
+            splitinput[1] = "southeast";
+            only_direction = true;
+            break;
+        case "s":
+            splitinput[1] = "south";
+            only_direction = true;
+            break;
+        case "sw":
+            splitinput[1] = "southwest";
+            only_direction = true;
+            break;
+        case "w":
+            splitinput[1] = "west";
+            only_direction = true;
+            break;
+        case "nw":
+            splitinput[1] = "northwest";
+            only_direction = true;
+            break;
+    };
+
+    if (only_direction) {
+        splitinput[0] = "go";
+        input = "go " + splitinput[1];
     };
 
     // Core functions
