@@ -395,14 +395,7 @@ var parseInputReal = function(input) {
 
             var movefail = userMove(splitinput.slice(1).join(" "), false);
             if (!movefail) {
-                if (rooms[currentlocation]["first_enter"] && (roomhistory.indexOf(currentlocation) == -1)) {
-                    show(format(rooms[currentlocation]["first_enter"]));
-                } else {
-                    userLook();
-                };
-                if (roomhistory.indexOf(currentlocation == -1)) {
-                    roomhistory.push(currentlocation);
-                };
+                userLook();
             };
             return 0;
         case "take":
@@ -587,8 +580,12 @@ var executeActions = function(objectid) {
 };
 
 var userLook = function() {
-    description = format(rooms[currentlocation]["description"]);
-    show(description);
+    if (rooms[currentlocation]["first_enter"] && (roomhistory.indexOf(currentlocation) == -1)) {
+        show(format(rooms[currentlocation]["first_enter"]));
+        roomhistory.push(currentlocation);
+    } else {
+        show(format(rooms[currentlocation]["description"]));
+    };
 };
 
 var format = function(text) {
