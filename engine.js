@@ -390,6 +390,7 @@ var parseInputReal = function(input) {
             };
             break;
         case "inventory":
+        case "i":
             if (!playing) { break; }
             userInventory();
             return 1;
@@ -417,6 +418,7 @@ var parseInputReal = function(input) {
                 default: return 3;
             };
         case "look":
+        case "l":
             if (!playing) { break; }
             // Ensure the user is only looking. Items should have their own on_look_at handler
             if (splitinput.length == 1) {
@@ -425,6 +427,7 @@ var parseInputReal = function(input) {
             };
             break;
         case "wait":
+        case "z":
             if (!playing) { break; }
             show("You wait...");
             return 0;
