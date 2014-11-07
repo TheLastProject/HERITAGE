@@ -164,7 +164,7 @@ var init = function(filename) {
     playing = false;
     currentsetting = "";
     gameinfo = {};
-    variables = {"_game_over": 0, "_turn": 0};
+    variables = {"_game_over": 0, "_turn": 0, "_write_to": 0};
     rooms = {};
     roomhistory = [];
     items = {};
@@ -202,12 +202,12 @@ var initGetMode = function(line, currentmode) {
     } else if (line.substr(0,4) == "var(") {
         varandvalue = line.substr(4).split(")")[0];
         if (varandvalue.indexOf(",") > -1) {
-            setVarValue(varandvalue.split(",")[0], varandvalue.split(",")[1]);
+            setVarValue(varandvalue.split(",")[0].trim(), varandvalue.split(",")[1].trim());
         } else {
             setVarValue(varandvalue, 0);
         };
     } else if (line.substr(0,5) == "room(") {
-        var roomlocation = line.substr(5).split(")")[0];
+        var roomlocation = line.substr(5).split(")")[0].trim();
         rooms[roomlocation] = {};
         // These need to exist, so make them empty in case the game doesn't define them
         rooms[roomlocation]["description"] = "";
@@ -219,7 +219,7 @@ var initGetMode = function(line, currentmode) {
         items[iteminfo] = {};
         return ["item", iteminfo]
     } else if (line.substr(0,7) == "action(") {
-        var actioninfo = line.substr(7).split(")")[0];
+        var actioninfo = line.substr(7).split(")")[0].trim();
         var dotsplit = actioninfo.lastIndexOf(".");
         if (dotsplit > -1) {
             var addtophrase = actioninfo.substr(dotsplit);
@@ -235,7 +235,7 @@ var initGetMode = function(line, currentmode) {
         };
         return ["action", actioninfo];
     } else if (line.substr(0,5) == "exit(") {
-        var exitinfo = line.substr(5).split(")")[0];
+        var exitinfo = line.substr(5).split(")")[0].trim();
         exits[exitinfo] = {};
         return ["exit", exitinfo];
     } else {
@@ -337,6 +337,13 @@ var parseInputReal = function(input) {
      */
     var input = input.trim();
     var splitinput = input.split(" ");
+
+    if (playing && getVarValue("_write_to") != 0) {
+        setVarValue(getVarValue("_write_to"), '"' + input + '"');
+        setVarValue("_write_to", 0);
+        parseInputReal("look");
+        return 1;
+    };
 
     // Core functions
     switch (splitinput[0]) {
@@ -634,7 +641,7 @@ var format = function(text) {
         switch(character) {
             case "!": var newtext = echoVar(manipulatetext); break;
             case "@": var newtext = calculateVarValue(manipulatetext); break;
-            case "#": var newtext = changeVarValue(manipulatetext); break;
+            case "#": var newtext = ""; changeVarValue(manipulatetext); break;
             case "$": var newtext = formatVariableText(manipulatetext); break;
         };
 
@@ -657,11 +664,13 @@ var getVarValue = function(variable) {
         case "_yesno": return parseInt(Math.random());
     };
 
-    if (parseInt(variables[variable]) != variables[variable] && !variables[variables[variable]] && variables[variable][0] != '"' && variables[variable][variable.length-1] != '"') {
-        console.log('Variable ' + variable + 
-        ' refers to non-existent variable ' + variables[variable] + 
-        '. Did you mean to set it to "' + variables[variable] + 
-        '"? Returning 0.');
+    if (variables[variable] == null) {
+        console.log("Variable " + variable + " does not exist. Did you forget to initialize it? Returning 0");
+        return 0;
+    };
+
+    if (parseInt(variables[variable]) != variables[variable] && !variables[variables[variable]] && variables[variable][0] != '"' && variables[variable][variables[variable].length-1] != '"') {
+        console.log('Variable ' + variable + ' refers to non-existent variable ' + variables[variable] + '. Did you mean to set it to "' + variables[variable] + '"? Returning 0.');
         return 0;
     };
 
@@ -678,8 +687,7 @@ var calculateNewValue = function(variable, operator, value) {
     };
 
     if (operator != "+" && value[0] == '"' && value[value.length-1] == '"') {
-        console.log("Cannot calculate on string value. Variable: " + variable 
-        + ". Operator: " + operator + ". Value: " + value);
+        console.log("Cannot calculate on string value. Variable: " + variable + ". Operator: " + operator + ". Value: " + value);
         return value;
     };
 
@@ -709,7 +717,12 @@ var getOperator = function(text) {
 };
 
 var echoVar = function(text) {
-    return getVarValue(text);
+    var value = getVarValue(text);
+    if (value[0] == '"' && value[value.length-1] == '"') {
+        return value.substr(1, value.length-2);
+    } else {
+        return value;
+    };
 };
 
 var calculateVarValue = function(text) {
@@ -737,19 +750,22 @@ var changeVarValue = function(text) {
 
     if (!operator) {
         console.log("Invalid statement: #(" + text + ")#");
-        return "";
+        return;
     };
 
     var variable = text.split(operator)[0];
     var value = text.split(operator)[1];
     if (["_random", "_turn"].indexOf(variable) > -1) {
         console.log("Cannot write to internal variable " + variable);
-        return "";
+        return;
+    } else if (variable == "_write_to") {
+        setVarValue(variable, value);
+        return;
     };
 
     setVarValue(variable, calculateNewValue(variable, operator, value));
     
-    return "";
+    return;
 };
 
 var formatVariableText = function(text) {
