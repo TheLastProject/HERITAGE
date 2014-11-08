@@ -50,7 +50,7 @@ $(document).ready( function() {
             event.preventDefault();
             var input = $("#inputbar").val();
             if (input) {
-                if (commandhistory[commandhistory.length-1] != input) {
+                if (commandhistory[commandhistory.length-1] != input && ["again", "g"].indexOf(input) == -1) {
                     commandhistory.push(input);
                     commandposition = commandhistory.length;
                 }
@@ -102,7 +102,6 @@ var saveSession = function() {
     if (!gameinfo["author"]) { gameinfo["author"] = "Unknown Author" }
     var session = {
         'savetime' : (new Date).getTime(),
-        'commandhistory' : commandhistory,
         'gameinfo' : gameinfo,
         'variables' : variables,
         'rooms' : rooms,
@@ -123,7 +122,6 @@ var loadSession = function(id) {
         return;
     }
     var restore_session = JSON.parse(localStorage[id - 1]);
-    commandhistory = restore_session["commandhistory"];
     gameinfo = restore_session["gameinfo"];
     variables = restore_session["variables"];
     rooms = restore_session["rooms"];
@@ -439,6 +437,10 @@ var parseInputReal = function(input) {
                 return 1;
             };
             break;
+        case "again":
+        case "g":
+            parseInput(commandhistory[commandhistory.length-1]);
+            return 1;
         case "inventory":
         case "i":
             if (!playing) { break; }
