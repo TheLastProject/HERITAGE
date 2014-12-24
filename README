@@ -15,15 +15,16 @@ files, written in a format specially tailored for the text adventure game
 genre. It is designed to be easy to use, yet powerful enough to make serious 
 text adventure games in.
 
-For an example, please look at example.heritage. Proper documentation to 
-writing a text adventure game for HERITAGE will be written soon.
+For an example, please look at example.heritage. Documentation on how to write 
+a text adventure game for HERITAGE is available on 
+[Read The Docs](http://heritage.readthedocs.org/en/latest/)
 
 LICENSE
 =======
 
 HERITAGE is released under the GNU GPLv3+. Alternatively, some files are 
 available under another license. These are:
-- jquery-1.11.1.min.js (available under the MIT license)
+- jquery-1.11.1(.min).js (available under the MIT license)
 - index.html (available under the CC0 license)
 - style.css (available under the CC0 license)
 - README (available under the CC0 license)
