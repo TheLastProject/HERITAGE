@@ -1,0 +1,77 @@
+/* License: CC0 */
+
+/* List of items */
+/* Items which are not defined here, but in rooms, will act in a very standard way */
+item(chair):
+    on_examine: It's a simple desk chair.
+    on_sit_on: I don't feel like sitting down...
+
+item(desk):
+    on_examine: It is covered in Linux Live CD's, random hardware and a Julian Assange novel.
+
+item(paper):
+    on_examine: It's a blank piece of paper.
+    allow_take: true
+
+item(posters):
+    on_examine: You see two posters, one for Battle of Britain Memorial, the other for Cloudkicker. Nice music.
+
+item(pen):
+    on_examine: It's a cheap knock-off brand, but it still writes well enough.
+    allow_take: true
+
+item(computer.1):
+    on_examine: It must be ancient by now.
+    on_use: It appears to not boot correctly. Maybe installing Gentoo wasn't such a good idea after all.
+
+item(monitor):
+    on_examine: ERROR: Could not find /dev/mapper/root.
+
+item(door):
+    on_examine: It's just a door, nothing special.
+
+item(note):
+    on_examine: Mom, dad, I'm your daughter. None of this is your fault, and I don't want you to be angry or sad. I'll be staying over with a friend for a bit. I love you.
+
+item(computer.2):
+    on_use: This is mom's computer, I really shouldn't use it.
+
+item(couch):
+    on_examine: It's an old couch.
+    on_sit_on: I don't feel like sitting down...
+
+item(tv):
+    on_examine: It's a normal TV, not too young, not too old.
+    on_turn_on: Why should I bother turning it on? There's never anything on anyway.
+
+item(doorbell):
+    on_examine: It looks antique.
+    on_ring: $(equals:door_bell_rang,0;You ring the doorbell and your friend opens the door. 'Come in', she says, before walking to the living room.#(door_bell_rang=1)#|There is no need to ring the doorbell again.)$
+
+/* Because these actions are related to the items so closely, we're putting them here for maintainability */
+item(friend.1):
+    on_examine: She smiles at you.
+    on_talk_to: "Have you told them yet?", she asks you.
+    on_say_yes_to: She smiles at you.
+                   "You're worried, aren't you? Don't worry, hun, I'm sure it'll be fine", she says, pausing for a bit.
+                   "Let's go upstairs, play some games?", she asks invitingly, leaving the room before you can answer.
+                   #(friend_house_access=1)#
+
+action(say_yes):
+    succeed: She smiles at you.
+                   "You're worried, aren't you? Don't worry, hun, I'm sure it'll be fine", she says, pausing for a bit.
+                   "Let's go upstairs, play some games?", she asks invitingly, leaving the room before you can answer.
+                   #(friend_house_access=1)#
+    require_here: friend.1
+
+item(friend.2):
+    on_examine: She smiles at you.
+    on_say_goodbye_to: "Bye, hun! Take care!" #(said_goodbye_friend=1)#
+
+action(say_goodbye):
+    succeed: "Bye, hun! Take care!" #(said_goodbye_friend=1)#
+    require_here: friend.2
+
+item(computer.3):
+    on_examine: It looks pretty fancy.
+

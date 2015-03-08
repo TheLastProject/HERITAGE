@@ -1,0 +1,14 @@
+info():
+    title: Example Game
+    author: HERITAGE
+    license: CC0
+
+/* Imports are a totally optional feature to allow us to organise our game */
+/* files more nicely. We could also simply put all functionality here. */
+
+/* Import as many or as little files as you like. */
+import(vars)
+import(items)
+import(actions)
+import(rooms)
+import(exits)

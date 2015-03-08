@@ -1,0 +1,19 @@
+/* License: CC0 */
+
+/* Actions are what has been classicly regarded to as verbs. You define a specific action, the requirements and the result */
+action(write_note|use_pen):
+    succeed: You take a deep breath and start writing down your feelings on the piece of paper, creating a note for your parents.
+    require_inventory: paper, pen
+    lose: paper
+    gain: note
+
+action(put_note_on_table|leave_note|drop_note|put_down_note):
+    succeed: You put the note on the table.
+    require_inventory: note
+    require_here: table
+    drop: note
+
+action(read_text_message|read_message|read_messages|check_phone|check_message|check_messages):
+    succeed: Mom: Please come home #(can_go_home=1)#
+    fail: I don't have any unread messages
+    equals: ready_for_phone, 1

@@ -1,0 +1,24 @@
+/* License: CC0 */
+
+/* Sometimes, exits need to be treated in a special way. For example, an exit leading to a non-standard location, or an exit that can't be left without a special item such as a key */
+exit(1):
+    fail: I can't leave the house yet. Despite my fear, I should really tell my parents who I truly am. Perhaps I could leave them a note...
+    require_location: 0.0.-1, note
+    new_location: 10.0.-1
+
+exit(2):
+    fail: I don't want to go back home...
+    equals: can_go_home,1
+    new_location: 999.999.999
+
+exit(3):
+    fail: The door is locked.
+    equals: door_bell_rang,1
+
+exit(4):
+    fail: It's rude to leave without saying goodbye.
+    equals: said_goodbye_friend,1
+
+exit(5):
+    fail: I can't just go to her bedroom, show a little respect!
+    equals: friend_house_access,1

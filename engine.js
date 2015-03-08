@@ -2,7 +2,7 @@
     @licstart  The following is the entire license notice for the 
     JavaScript code in this page.
 
-    Copyright (C) 2014  SylvieLorxu <sylvie@contracode.nl>
+    Copyright (C) 2014 - 2015  SylvieLorxu <sylvie@contracode.nl>
 
     This program is free software: you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
@@ -155,7 +155,7 @@ var show = function(message, type) {
     }
 };
 
-var init = function(filename) {
+var init = function(gamename) {
     // Load all the game data into Javascript variables so that it can be played
     show("Loading game file...");
     // Init necessary vars
@@ -170,22 +170,54 @@ var init = function(filename) {
     exits = {};
     inventory = [];
     currentmode = null;
-    $.get(filename, function( gamedata ) {
+    var importedfiles = [];
+    var importfailed = false;
+    $.get(gamename + "/main.heritage", function( gamedata ) {
         show("Parsing game...");
         gamedata = gamedata.split('\n');
-        $.each(gamedata, function(){
-            var gameline = this.replace(/\/\*.*?\*\//g, "").trim(); // Trim the line and remove all comments
-            newmode = initGetMode(gameline, currentmode);
-            if (currentmode && (currentmode == newmode)) { parseForMode(gameline, currentmode); }
-            currentmode = newmode;
-        });
+        for (var linenumber = 0; linenumber < gamedata.length; linenumber++) {
+            var gameline = gamedata[linenumber].replace(/\/\*.*?\*\//g, "").trim(); // Trim the line and remove all comments
+
+            if (gameline.substr(0,7) == "import(") {
+                var importname = gameline.substr(7).split(")")[0];
+
+                if (importname.indexOf("../") != -1) {
+                    show("Failed to load import file " + importname + ".heritage (HERITAGE security exception: traversing directory upwards not allowed)", "error");
+                    importfailed = true;
+                };
+
+                importedfiles.push(importname);
+
+                // TODO: Don't depend on async requests
+                $.ajaxSetup({ async: false })
+
+                $.get(gamename + "/" + importname + ".heritage", function ( importedgamedata ) {
+                    // Insert import data at the space the import statement is
+                    gamedata = gamedata.slice(0, linenumber).concat(importedgamedata.split('\n')).concat(gamedata.slice(linenumber+1));
+                }, "text").fail(function() { show("Failed to load import file " + importname + ".heritage (AJAX request failed)", "error"); importfailed = true; });
+            } else {
+                var newmode = initGetMode(gameline, currentmode);
+                if (currentmode && (currentmode == newmode)) { parseForMode(gameline, currentmode); }
+                var currentmode = newmode;
+            }
+        };
+
+        $.ajaxSetup({ async: true })
+
+        if (importfailed) return;
+        
         currentlocation = "0.0.0";
         // Done initializing, display info!
         gamemessage = "";
         for (info in gameinfo) {
             gamemessage += escapeHTML(info + ": " + gameinfo[info]) + "<br />";
         };
-        show(gamemessage + "<br /><a href='" + filename + "'>Game source (right click to download)</a><br /><br />Type start to start", "html");
+
+        var sourcemessage = "Source file(s): <a href='" + gamename + "/main.heritage'>main</a>";
+        $.each(importedfiles, function() {
+            sourcemessage += " <a href='" + gamename + "/" + this + ".heritage'>" + this + "</a>";
+        });
+        show(gamemessage + "<br />" + sourcemessage + "<br /><br />Type start to start", "html");
     }, "text").fail(function() { show("Failed to load game files (AJAX request failed)", "error") });
 };
 
@@ -402,7 +434,6 @@ var parseInputReal = function(input) {
             // Start initializing the chosen game
             if (splitinput.length > 1) {
                 var toload = splitinput.splice(1).join("%20");
-                if (toload[-9,toload.length] != ".heritage") { toload += ".heritage"; };
                 init(toload);
             } else {
                  show("Error: Incorrect argument count. Correct usage: 'load <gamename/URL>'.", "error");

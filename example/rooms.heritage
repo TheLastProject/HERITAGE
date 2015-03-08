@@ -1,0 +1,96 @@
+/* License: CC0 */
+
+/* A list of rooms, where the player will be hanging around */
+room(0.0.0):
+    /* Your room */
+    first_enter: What is your name? #(_write_to=name)#
+    description: You are in !(name)!'s room.
+
+                 It is a rather bland room, containing only a desk, a chair and some posters.
+
+                 On the desk $(require_here:paper;lies an empty piece of paper and )$stands a computer, the monitor displaying a cryptic error message.
+
+                 There is a door to the north.
+    items: chair, desk, paper, computer|pc.1, monitor, door, posters
+    exits: north
+
+room(0.1.0):
+    /* Second-floor hallway */
+    description: You are in the hallway on the second floor.
+
+                 There is a stair leading downstairs, a door to the south which leads to your room and a door to the west which leads to your mother's office.
+    exits: west, down|downstairs, south
+
+room(-1.1.0):
+    /* Mom's office */
+    description: You are in your mother's office$(require_here:pen;, a pen lying on her office)$.
+
+                 There is a door to the east, leading to a hallway.
+    items: pen, computer.2
+    exits: east
+
+room(0.1.-1):
+    /* Hallway downstairs */
+    description: You are in the hallway downstairs.
+
+                 A door to the north leads outside, a door to the south leads to the living room.
+
+                 There are also stairs leading upstairs.
+    exits: north.1, south, up|upstairs
+
+room(0.0.-1):
+    /* Living room */
+    description: You are in the living room, which contains a couch, a table and a tv.
+
+                 $(require_here:note;On the table lies an emotional note to your parents.
+                 )$
+                 A door to the north leads to the hallway.
+    items: couch, table, tv
+    exits: north
+
+room(10.0.-1):
+    /* Friend's home, front door */
+    first_enter: You ride your bike towards your friends home, arriving a good fifteen minutes later...
+    description: You are standing in front of your friend's home.
+
+                 The garden is fairly boring, but the door is a beautiful wooden door, a small doorbell next to it.
+    
+                 North of you is a wooden door, to the south is the route back home.
+    items: doorbell
+    exits: south.2, north.3
+
+room(10.1.-1):
+    /* Friend's home, hallway */
+    description: You are in the hallway of your friend's home.
+
+                 To the north is the living room, upstairs is your friend's bedroom, to the south is the front door.
+    exits: north, up|upstairs.5, south.4
+
+room(10.2.-1):
+    /* Friend's home, living room */
+    description: You are in your friend's living room.
+
+                 $(require_here:friend.1;Your friend is sitting on the couch, looking at you.)$$(!require_here:friend.1;The couch is empty.)$
+
+                 There is an exit south, leading to the hallway.
+    items: $(equals:friend_house_access,0;friend.1)$
+    exits: south
+
+room(10.1.0):
+    /* Friend's bedroom */
+    first_enter: Upon entering your friend's bedroom, she shows you her favourite game.
+
+                 You play for a good hour, until your phone notifies you of a new message...
+                 #(ready_for_phone=1)#
+    description: You are in your friend's bedroom. She is playing some games. Your friend's hallway is downstairs.
+    items: friend.2, computer.3
+    exits: down|downstairs
+
+room(999.999.999):
+    /* Game ends */
+    first_enter: Our story ends here, without any conclusion.
+
+                 Whatever your story is, you can make it great, as long as you believe in yourself.
+
+                 Goodbye, for now, and thanks for playing.
+                 #(_game_over=1)#
