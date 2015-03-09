@@ -156,10 +156,50 @@ var show = function(message, type) {
 };
 
 var init = function(gamename) {
-    // Load all the game data into Javascript variables so that it can be played
-    show("Loading game file...");
-    // Init necessary vars
     playing = false;
+    var gamedata = [];
+    var importedfiles = [];
+    var importqueue = 1;
+
+    $.get(gamename + "/main.heritage", function( filedata ) {
+        show("Downloading game file(s)...");
+        gamedata[0] = filedata.split('\n');
+
+        for (var linenumber = 0; linenumber < gamedata[0].length; linenumber++) {
+            var gameline = gamedata[0][linenumber].replace(/\/\*.*?\*\//g, "").trim(); // Trim the line and remove all comments
+
+            if (gameline.substr(0,7) == "import(") {
+                importqueue++;
+                var importname = gameline.substr(7).split(")")[0];
+
+                if (importname.indexOf("../") != -1) {
+                    show("Failed to load import file " + importname + ".heritage (HERITAGE security exception: traversing directory upwards not allowed)", "error");
+                    return;
+                };
+
+                $.get(gamename + "/" + importname + ".heritage", function ( importedgamedata ) {
+                    var filename = this.url.slice(this.url.lastIndexOf("/") + 1).slice(0,-9);
+                    importedfiles.push(filename);
+                    // Insert import data at the space the import statement is
+                    gamedata[importedfiles.indexOf(filename)+1] = importedgamedata.split('\n');
+                    importqueue--;
+                    initComplete(gamename, gamedata, importedfiles, importqueue);
+                }, "text").fail(function() { show("Failed to load import file " + this.url.slice(this.url.lastIndexOf("/") + 1) + " (AJAX request failed)", "error"); return;});
+            }
+        };
+
+        importqueue--;
+        initComplete(gamename, gamedata, importedfiles, importqueue);
+    }, "text").fail(function() { show("Failed to load game files (AJAX request failed)", "error") });
+};
+
+var initComplete = function(gamename, gamedata, importedfiles, importqueue) {
+    // Wait until all importing is done
+    if (importqueue > 0) return;
+
+    gamedata = [].concat.apply([], gamedata);
+
+    // Load all the game data into Javascript variables so that it can be played
     currentsetting = "";
     gameinfo = {};
     variables = {"_game_over": 0, "_turn": 0, "_write_to": 0};
@@ -170,55 +210,31 @@ var init = function(gamename) {
     exits = {};
     inventory = [];
     currentmode = null;
-    var importedfiles = [];
-    var importfailed = false;
-    $.get(gamename + "/main.heritage", function( gamedata ) {
-        show("Parsing game...");
-        gamedata = gamedata.split('\n');
-        for (var linenumber = 0; linenumber < gamedata.length; linenumber++) {
-            var gameline = gamedata[linenumber].replace(/\/\*.*?\*\//g, "").trim(); // Trim the line and remove all comments
 
-            if (gameline.substr(0,7) == "import(") {
-                var importname = gameline.substr(7).split(")")[0];
+    for (var linenumber = 0; linenumber < gamedata.length; linenumber++) {
+        show("Parsing game... (" + linenumber + "/" + gamedata.length + ")");
 
-                if (importname.indexOf("../") != -1) {
-                    show("Failed to load import file " + importname + ".heritage (HERITAGE security exception: traversing directory upwards not allowed)", "error");
-                    importfailed = true;
-                };
+        var gameline = gamedata[linenumber].replace(/\/\*.*?\*\//g, "").trim(); // Trim the line and remove all comments
 
-                importedfiles.push(importname);
+        if (gameline.substr(0,7) == "import(") continue;
 
-                // TODO: Don't depend on async requests
-                $.ajaxSetup({ async: false })
+        var newmode = initGetMode(gameline, currentmode);
+        if (currentmode && (currentmode == newmode)) { parseForMode(gameline, currentmode); }
+        var currentmode = newmode;
+    };
 
-                $.get(gamename + "/" + importname + ".heritage", function ( importedgamedata ) {
-                    // Insert import data at the space the import statement is
-                    gamedata = gamedata.slice(0, linenumber).concat(importedgamedata.split('\n')).concat(gamedata.slice(linenumber+1));
-                }, "text").fail(function() { show("Failed to load import file " + importname + ".heritage (AJAX request failed)", "error"); importfailed = true; });
-            } else {
-                var newmode = initGetMode(gameline, currentmode);
-                if (currentmode && (currentmode == newmode)) { parseForMode(gameline, currentmode); }
-                var currentmode = newmode;
-            }
-        };
+    currentlocation = "0.0.0";
+    // Done initializing, display info!
+    gamemessage = "";
+    for (info in gameinfo) {
+        gamemessage += escapeHTML(info + ": " + gameinfo[info]) + "<br />";
+    };
 
-        $.ajaxSetup({ async: true })
-
-        if (importfailed) return;
-        
-        currentlocation = "0.0.0";
-        // Done initializing, display info!
-        gamemessage = "";
-        for (info in gameinfo) {
-            gamemessage += escapeHTML(info + ": " + gameinfo[info]) + "<br />";
-        };
-
-        var sourcemessage = "Source file(s): <a href='" + gamename + "/main.heritage'>main</a>";
-        $.each(importedfiles, function() {
-            sourcemessage += " <a href='" + gamename + "/" + this + ".heritage'>" + this + "</a>";
-        });
-        show(gamemessage + "<br />" + sourcemessage + "<br /><br />Type start to start", "html");
-    }, "text").fail(function() { show("Failed to load game files (AJAX request failed)", "error") });
+    var sourcemessage = "Source file(s): <a href='" + gamename + "/main.heritage'>main</a>";
+    $.each(importedfiles, function() {
+        sourcemessage += " <a href='" + gamename + "/" + this + ".heritage'>" + this + "</a>";
+    });
+    show(gamemessage + "<br />" + sourcemessage + "<br /><br />Type start to start", "html");
 };
 
 var startgame = function() {
