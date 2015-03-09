@@ -15,8 +15,8 @@ files, written in a format specially tailored for the text adventure game
 genre. It is designed to be easy to use, yet powerful enough to make serious 
 text adventure games in.
 
-For an example, please look at example.heritage. Documentation on how to write 
-a text adventure game for HERITAGE is available on 
+For an example, please look at the example directory. Documentation on how to 
+write a text adventure game for HERITAGE is available on 
 [Read The Docs](http://heritage.readthedocs.org/en/latest/)
 
 LICENSE
@@ -28,6 +28,6 @@ available under another license. These are:
 - index.html (available under the CC0 license)
 - style.css (available under the CC0 license)
 - README (available under the CC0 license)
-- example.heritage (available under the CC0 license)
+- example/* (available under the CC0 license)
 
 The file COPYING is Copyright (C) 2007 Free Software Foundation, Inc.
