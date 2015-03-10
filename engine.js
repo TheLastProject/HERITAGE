@@ -166,6 +166,8 @@ var init = function(gamename) {
         gamedata[0] = filedata.split('\n');
 
         for (var linenumber = 0; linenumber < gamedata[0].length; linenumber++) {
+            var gameline = gamedata[0][linenumber];
+
             if (gameline.substr(0,7) == "import(") {
                 importqueue++;
                 var importname = gameline.substr(7).split(")")[0];
@@ -473,6 +475,7 @@ var parseInputReal = function(input) {
             if (playing) { break; }
             localStorage.clear();
             showHome();
+            return 1;
         case "start":
             if (splitinput.length == 1 && !playing) {
                 if (typeof(variables) != "undefined") {
