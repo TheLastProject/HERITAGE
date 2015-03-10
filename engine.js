@@ -70,7 +70,7 @@ $(document).ready( function() {
         show("Saving session...");
         saveSession();
         show("Saving session... Done!");
-    });
+        });
 
     // Show home screen
     showHome();
@@ -84,9 +84,9 @@ $(document).ready( function() {
 
 var showHome = function() {
     $("#message").html('<p>Welcome to HERITAGE alpha.</p><p>Heritage Equals Retro Interpreting Text Adventure Game Engine</p><p>Type "help" for help.</p>');
-    if (supports_html_storage && localStorage.length > 0) {
+    if (supports_html_storage && localStorage.savedGames.length > 0) {
         show($("#message").html() + 'Saved sessions found. Type "loadsave" to load a saved session, or "clearsaves" to delete all sessions in progress.', "html");
-    }
+    }    
 };
 
 var supports_html_storage = function () {
@@ -101,7 +101,7 @@ var saveSession = function() {
     if (!gameinfo["title"]) { gameinfo["title"] = "Unknown Game" }
     if (!gameinfo["author"]) { gameinfo["author"] = "Unknown Author" }
     var session = {
-        'savetime' : (new Date).getTime(),
+        'savetime' : Date.now(),
         'gameinfo' : gameinfo,
         'variables' : variables,
         'rooms' : rooms,
@@ -112,16 +112,36 @@ var saveSession = function() {
         'inventory' : inventory,
         'currentlocation' : currentlocation
     };
-    localStorage.setItem(localStorage.length, JSON.stringify(session));
+
+    var games;
+    if (localStorage.getItem('savedGames')) {
+        games = JSON.parse(localStorage.getItem('savedGames'));
+    } else {
+        games = [];
+    }
+
+    if (typeof loadedgame !== 'undefined') {
+        // If this is the continuation of a loaded game, override the slot
+        games[loadedgame] = session;
+    } else {
+        games.push(session);
+    }
+
+    localStorage.setItem('savedGames', JSON.stringify(games));
 };
 
 var loadSession = function(id) {
-    var restore_session = localStorage[id - 1];
-    if (!restore_session) {
+    loadedgame = id - 1; // Save the game's slot so we can override it later
+
+    var sessions = JSON.parse(localStorage.savedGames);
+
+    if (!sessions[loadedgame]) {
         show("Could not find session with id " + id);
         return;
     }
-    var restore_session = JSON.parse(localStorage[id - 1]);
+
+    var restore_session = sessions[loadedgame];
+
     gameinfo = restore_session["gameinfo"];
     variables = restore_session["variables"];
     rooms = restore_session["rooms"];
@@ -131,7 +151,6 @@ var loadSession = function(id) {
     exits = restore_session["exits"];
     inventory = restore_session["inventory"];
     currentlocation = restore_session["currentlocation"];
-    localStorage.removeItem(id - 1);
     parseInput("start");
 };
 
@@ -458,22 +477,21 @@ var parseInputReal = function(input) {
         case "loadsave":
             // Restore a saved session
             if (playing) { break; }
-            if (localStorage.length == 0) { show("There are no sessions in progress to load"); return 1; }
+            if (localStorage.savedGames.length == 0) { show("There are no sessions in progress to load"); return 1; }
             if (splitinput.length > 1) {
                 loadSession(splitinput[1]);
             } else {
                 var toshow = ["To restore a session, type 'loadsave' followed by the session number.<br />"];
-                for (savegame in localStorage) {
-                    var sessiondata = JSON.parse(localStorage[savegame]);
-                    toshow.push(toshow.length + ". " + sessiondata["gameinfo"]["Title"] + " - " + sessiondata["gameinfo"]["Author"] + " (" + sessiondata["savetime"] + ")");
-                }
+                JSON.parse(localStorage.getItem('savedGames')).forEach(function( sessiondata ) {
+                    toshow.push(toshow.length + ". " + sessiondata["gameinfo"]["title"] + " by " + sessiondata["gameinfo"]["author"] + " (" + new Date(sessiondata["savetime"]).toString() + ")");
+                });
                 show(toshow.join("<br />"), "html");
             }
             return 1;
         case "clearsaves":
             // Delete all saves
             if (playing) { break; }
-            localStorage.clear();
+            localStorage.savedGames = [];
             showHome();
             return 1;
         case "start":
