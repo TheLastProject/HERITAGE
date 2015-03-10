@@ -166,8 +166,6 @@ var init = function(gamename) {
         gamedata[0] = filedata.split('\n');
 
         for (var linenumber = 0; linenumber < gamedata[0].length; linenumber++) {
-            var gameline = gamedata[0][linenumber].replace(/\/\*.*?\*\//g, "").trim(); // Trim the line and remove all comments
-
             if (gameline.substr(0,7) == "import(") {
                 importqueue++;
                 var importname = gameline.substr(7).split(")")[0];
