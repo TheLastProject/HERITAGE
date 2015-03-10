@@ -70,7 +70,7 @@ $(document).ready( function() {
         show("Saving session...");
         saveSession();
         show("Saving session... Done!");
-        });
+    });
 
     // Show home screen
     showHome();
