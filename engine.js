@@ -498,7 +498,9 @@ var parseInputReal = function(input) {
             if (splitinput.length == 1 && !playing) {
                 if (typeof(variables) != "undefined") {
                     setVarValue("_game_over", 0);
-                };
+                } else {
+                    break;
+                }
                 startgame();
                 return 1;
             };
