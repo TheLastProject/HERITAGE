@@ -235,6 +235,9 @@ var initComplete = function(gamename, gamedata, importedfiles, importqueue) {
 
         var gameline = gamedata[linenumber].replace(/\/\*.*?\*\//g, "").trim(); // Trim the line and remove all comments
 
+        // Prevent HERITAGE from showing a blank line if the line is completely comment
+        if (!gameline && gamedata[linenumber].trim()) continue;
+        
         if (gameline.substr(0,7) == "import(") continue;
 
         var newmode = initGetMode(gameline, currentmode);
@@ -500,7 +503,7 @@ var parseInputReal = function(input) {
                     setVarValue("_game_over", 0);
                 } else {
                     break;
-                }
+                };
                 startgame();
                 return 1;
             };
