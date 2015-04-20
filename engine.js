@@ -84,7 +84,7 @@ $(document).ready( function() {
 
 var showHome = function() {
     $("#message").html('<p>Welcome to HERITAGE alpha.</p><p>Heritage Equals Retro Interpreting Text Adventure Game Engine</p><p>Type "help" for help.</p>');
-    if (supports_html_storage && localStorage.savedGames.length > 0) {
+    if (supports_html_storage && localStorage.length > 0 && localStorage.savedGames.length > 0) {
         show($("#message").html() + 'Saved sessions found. Type "loadsave" to load a saved session, or "clearsaves" to delete all sessions in progress.', "html");
     }    
 };
