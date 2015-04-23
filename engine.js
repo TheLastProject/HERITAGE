@@ -97,6 +97,13 @@ var supports_html_storage = function () {
     }
 };
 
+var isString = function(value) {
+    if ((value[0] == '"' && value[value.length-1] == '"') || (value[0] == "'" && value[value.length-1] == "'"))
+        return true;
+
+    return false;
+};
+
 var saveSession = function() {
     if (!gameinfo["title"]) { gameinfo["title"] = "Unknown Game" }
     if (!gameinfo["author"]) { gameinfo["author"] = "Unknown Author" }
@@ -799,7 +806,7 @@ var getVarValue = function(variable) {
         return 0;
     };
 
-    if (parseInt(variables[variable]) != variables[variable] && !variables[variables[variable]] && variables[variable][0] != '"' && variables[variable][variables[variable].length-1] != '"') {
+    if (parseInt(variables[variable]) != variables[variable] && !variables[variables[variable]] && !isString(variables[variable])) {
         console.log('Variable ' + variable + ' refers to non-existent variable ' + variables[variable] + '. Did you mean to set it to "' + variables[variable] + '"? Returning 0.');
         return 0;
     };
@@ -812,11 +819,11 @@ var setVarValue = function(variable, value) {
 };
 
 var calculateNewValue = function(variable, operator, value) {
-    if (parseInt(value) != value) {
+    if (!isString(value) && parseInt(value) != value) {
         value = getVarValue(value);
     };
 
-    if (operator != "+" && value[0] == '"' && value[value.length-1] == '"') {
+    if (operator != "=" && isString(value)) {
         console.log("Cannot calculate on string value. Variable: " + variable + ". Operator: " + operator + ". Value: " + value);
         return value;
     };
@@ -848,7 +855,7 @@ var getOperator = function(text) {
 
 var echoVar = function(text) {
     var value = getVarValue(text);
-    if (value[0] == '"' && value[value.length-1] == '"') {
+    if (isString(value)) {
         return value.substr(1, value.length-2);
     } else {
         return value;
