@@ -1,5 +1,5 @@
 /*
-    @licstart  The following is the entire license notice for the 
+    @licstart  The following is the entire license notice for the
     JavaScript code in this page.
 
     Copyright (C) 2014 - 2015  SylvieLorxu <sylvie@contracode.nl>
@@ -86,7 +86,7 @@ var showHome = function() {
     $("#message").html('<p>Welcome to HERITAGE alpha.</p><p>Heritage Equals Retro Interpreting Text Adventure Game Engine</p><p>Type "help" for help.</p>');
     if (supports_html_storage && localStorage.length > 0 && localStorage.savedGames.length > 0) {
         show($("#message").html() + 'Saved sessions found. Type "loadsave" to load a saved session, or "clearsaves" to delete all sessions in progress.', "html");
-    }    
+    }
 };
 
 var supports_html_storage = function () {
@@ -104,7 +104,7 @@ var isString = function(value) {
     return false;
 };
 
-var saveSession = function() {
+var sessionify = function() {
     if (!gameinfo["title"]) { gameinfo["title"] = "Unknown Game" }
     if (!gameinfo["author"]) { gameinfo["author"] = "Unknown Author" }
     var session = {
@@ -119,6 +119,12 @@ var saveSession = function() {
         'inventory' : inventory,
         'currentlocation' : currentlocation
     };
+
+    return session;
+};
+
+var saveSession = function() {
+    var session = sessionify();
 
     var games;
     if (localStorage.getItem('savedGames')) {
@@ -137,7 +143,7 @@ var saveSession = function() {
     localStorage.setItem('savedGames', JSON.stringify(games));
 };
 
-var loadSession = function(id) {
+var loadSessionFromLocalStorage = function(id) {
     loadedgame = id - 1; // Save the game's slot so we can override it later
 
     var sessions = JSON.parse(localStorage.savedGames);
@@ -147,17 +153,19 @@ var loadSession = function(id) {
         return;
     }
 
-    var restore_session = sessions[loadedgame];
+    loadSession(sessions[loadedgame]);
+};
 
-    gameinfo = restore_session["gameinfo"];
-    variables = restore_session["variables"];
-    rooms = restore_session["rooms"];
-    roomhistory = restore_session["roomhistory"];
-    items = restore_session["items"];
-    actions = restore_session["actions"];
-    exits = restore_session["exits"];
-    inventory = restore_session["inventory"];
-    currentlocation = restore_session["currentlocation"];
+var loadSession = function(session) {
+    gameinfo = session["gameinfo"];
+    variables = session["variables"];
+    rooms = session["rooms"];
+    roomhistory = session["roomhistory"];
+    items = session["items"];
+    actions = session["actions"];
+    exits = session["exits"];
+    inventory = session["inventory"];
+    currentlocation = session["currentlocation"];
     parseInput("start");
 };
 
@@ -244,7 +252,7 @@ var initComplete = function(gamename, gamedata, importedfiles, importqueue) {
 
         // Prevent HERITAGE from showing a blank line if the line is completely comment
         if (!gameline && gamedata[linenumber].trim()) continue;
-        
+
         if (gameline.substr(0,7) == "import(") continue;
 
         var newmode = initGetMode(gameline, currentmode);
@@ -390,9 +398,9 @@ var parseForMode = function(line, currentmode) {
 };
 
 var parseInput = function(input) {
-    /* This function receives the input, and passes it on to another function 
+    /* This function receives the input, and passes it on to another function
      * which will return 0 on success, and non-zero on fail.
-     * If the input was succesful, and we're playing a match, we increment the 
+     * If the input was succesful, and we're playing a match, we increment the
      * current turn pseudo-variable by one.
      */
     $( "#inputbar" ).val("");
@@ -489,7 +497,7 @@ var parseInputReal = function(input) {
             if (playing) { break; }
             if (localStorage.savedGames.length == 0) { show("There are no sessions in progress to load"); return 1; }
             if (splitinput.length > 1) {
-                loadSession(splitinput[1]);
+                loadSessionFromLocalStorage(splitinput[1]);
             } else {
                 var toshow = ["To restore a session, type 'loadsave' followed by the session number.<br />"];
                 JSON.parse(localStorage.getItem('savedGames')).forEach(function( sessiondata ) {
@@ -565,6 +573,16 @@ var parseInputReal = function(input) {
             splitinput[0] = "examine";
             input = "examine " + input.substr(2);
             break;
+        case "startserver":
+            startServer();
+            return 0;
+        case "join":
+            if (splitinput.length != 2) {
+                show("Error: Incorrect argument count. Correct usage: 'join <id>'.", "error");
+                return 3;
+            };
+            connectServer(splitinput[1]);
+            return 0;
     };
 
     if (!playing) {
@@ -735,9 +753,9 @@ var userLook = function() {
 var format = function(text) {
     /* Format and calculate text and its values
      * This format finds the most inner check, and then calculates outwards.
-     * 
-     * However, we only take care of #(changeVarValue)# in the second round, 
-     * because this action is destructive and should not be executed unless 
+     *
+     * However, we only take care of #(changeVarValue)# in the second round,
+     * because this action is destructive and should not be executed unless
      * we're sure all conditions are satisfied.
      *
      * Example order:
@@ -839,7 +857,7 @@ var calculateNewValue = function(variable, operator, value) {
 };
 
 var getOperator = function(text) {
-    /* I wanted to return the operator in the for loop here, otherwise null, 
+    /* I wanted to return the operator in the for loop here, otherwise null,
      * but JavaScript decided that readable code is a bad thing.
      */
     var operators = ["=", "+", "-", "/", "*", "%"];
@@ -863,7 +881,7 @@ var echoVar = function(text) {
 };
 
 var calculateVarValue = function(text) {
-    /* Return the result of an operation on a variable, without changing the 
+    /* Return the result of an operation on a variable, without changing the
      * value of the original variable
      */
     var operator = getOperator(text);
@@ -901,7 +919,7 @@ var changeVarValue = function(text) {
     };
 
     setVarValue(variable, calculateNewValue(variable, operator, value));
-    
+
     return;
 };
 
@@ -1154,4 +1172,31 @@ var userTake = function(input) {
         show("I don't see any " + itemname + ".");
         return 4;
     };
+};
+
+// Multiplayer functionality
+var startServer = function() {
+    var peer = new Peer({key: 'lwjd5qra8257b9'});
+    peer.on('open', function(id) {
+        $("#message").html("A friend can join your game by typing 'join " + id + "'");
+    });
+    peer.on('connection', function(conn) {
+        conn.on('open', function() {
+            conn.send(sessionify());
+        });
+    });
+};
+
+var connectServer = function(id) {
+    var peer = new Peer({key: 'lwjd5qra8257b9'});
+    var conn = peer.connect(id, {reliable: true});
+    conn.on('open', function() {
+        conn.on('data', function(data) {
+            loadSession(data);
+        });
+    });
+};
+
+var stopMultiplayer = function() {
+    var peer = null;
 };
