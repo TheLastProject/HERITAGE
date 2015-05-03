@@ -25,6 +25,10 @@ $(document).ready( function() {
     // Register empty command history command
     window.commandhistory = [];
     window.commandposition = 0;
+    window.log = [];
+
+    // Start log timer
+    setInterval(function() { manageAndShowLog() }, 1000);
 
     // Focus on the input bar
     document.getElementById("inputbar").focus();
@@ -83,7 +87,7 @@ $(document).ready( function() {
 });
 
 var showHome = function() {
-    $("#message").html('<p>Welcome to HERITAGE alpha.</p><p>Heritage Equals Retro Interpreting Text Adventure Game Engine</p><p>Type "help" for help.</p>');
+    $("#message").html('<p>Welcome to HERITAGE.</p><p>Heritage Equals Retro Interpreting Text Adventure Game Engine</p><p>Type "help" for help.</p>');
     if (supports_html_storage && localStorage.length > 0 && localStorage.savedGames.length > 0) {
         show($("#message").html() + 'Saved sessions found. Type "loadsave" to load a saved session, or "clearsaves" to delete all sessions in progress.', "html");
     }
@@ -189,6 +193,31 @@ var show = function(message, type) {
     }
 };
 
+var addToLog = function(message) {
+    window.log.push([message, 30]);
+};
+
+var manageAndShowLog = function() {
+    var logMessages = [];
+
+    // Filter out old log messages
+    for (var i = window.log.length - 1; i >= 0; i--) {
+        window.log[i][1]--;
+        if (window.log[i][1] == 0) {
+            window.log.splice(i, 1);
+        } else {
+            logMessages.push(window.log[i][0] + ' <em>(' + window.log[i][1] + ')</em>');
+        };
+    };
+
+    if (logMessages.length > 0) {
+        logMessages.push('<hr>');
+    };
+
+    // Show current messages
+    $("#log").html(logMessages.join('<br>'));
+};
+
 var init = function(gamename) {
     playing = false;
     var gamedata = [];
@@ -271,11 +300,14 @@ var initComplete = function(gamename, gamedata, importedfiles, importqueue) {
     $.each(importedfiles, function() {
         sourcemessage += " <a href='" + gamename + "/" + this + ".heritage'>" + this + "</a>";
     });
-    show(gamemessage + "<br />" + sourcemessage + "<br /><br />Type start to start", "html");
+    show(gamemessage + "<br />" + sourcemessage + "<br /><br />Type 'start' to start a private game, or 'start multiplayer' to start a multiplayer game", "html");
 };
 
-var startgame = function() {
+var startGame = function(multiplayer) {
     playing = true;
+    if (multiplayer) {
+        startServer();
+    };
     userLook();
 };
 
@@ -513,13 +545,20 @@ var parseInputReal = function(input) {
             showHome();
             return 1;
         case "start":
-            if (splitinput.length == 1 && !playing) {
+            if (!playing) {
                 if (typeof(variables) != "undefined") {
                     setVarValue("_game_over", 0);
                 } else {
                     break;
                 };
-                startgame();
+                if (splitinput.length == 1) {
+                    startGame();
+                } else if (splitinput.length == 2 && splitinput[1] == 'multiplayer') {
+                    startGame(true);
+                }
+                return 1;
+            } else if (splitinput.length == 2 && splitinput[1] == 'multiplayer') {
+                startServer();
                 return 1;
             };
             break;
@@ -573,9 +612,6 @@ var parseInputReal = function(input) {
             splitinput[0] = "examine";
             input = "examine " + input.substr(2);
             break;
-        case "startserver":
-            startServer();
-            return 0;
         case "join":
             if (splitinput.length != 2) {
                 show("Error: Incorrect argument count. Correct usage: 'join <id>'.", "error");
@@ -1176,13 +1212,20 @@ var userTake = function(input) {
 
 // Multiplayer functionality
 var startServer = function() {
+    if (playing != true) {
+        show("There doesn't seem to be any game in progress", "error");
+        return;
+    };
+
     var peer = new Peer({key: 'lwjd5qra8257b9'});
     peer.on('open', function(id) {
-        $("#message").html("A friend can join your game by typing 'join " + id + "'");
+        addToLog("A friend can join your game by typing 'join " + id + "'");
     });
     peer.on('connection', function(conn) {
+        addToLog("Player " + conn.id + " connected");
         conn.on('open', function() {
             conn.send(sessionify());
+            addToLog("Sent game state to player " + conn.id);
         });
     });
 };
@@ -1191,8 +1234,10 @@ var connectServer = function(id) {
     var peer = new Peer({key: 'lwjd5qra8257b9'});
     var conn = peer.connect(id, {reliable: true});
     conn.on('open', function() {
+        addToLog("Joined game from player " + conn.id);
         conn.on('data', function(data) {
             loadSession(data);
+            addToLog("Received game data from player " + conn.id);
         });
     });
 };
