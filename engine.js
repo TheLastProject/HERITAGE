@@ -27,6 +27,7 @@ $(document).ready( function() {
     // Register empty command history command
     window.commandhistory = [];
     window.commandposition = 0;
+    window.isLooking = false;
     window.log = [];
 
     window.peer = null; // Multiplayer connectivity
@@ -189,6 +190,7 @@ var escapeHTML = function( s ) {
 };
 
 var show = function(message, type) {
+    window.isLooking = false;
     if (typeof(variables) != "undefined" && getVarValue("_game_over")) {
         type = "game_over";
     };
@@ -854,6 +856,7 @@ var userLook = function() {
         } else {
             show(roomdescription + '\n\n' + joinWithAnd(otherplayers) + " are here too.");
         };
+        window.isLooking = true;
     };
 };
 
@@ -1317,12 +1320,13 @@ var connectToPlayer = function(id) {
 var multiplayerMain = function(conn) {
     conn.on('open', function() {
         conn._nickname = conn.peer;
-        conn._location = "0.0.0";
+        conn._location = null;
         window.conns.push(conn);
         conn.send(['name', window.username]);
         addToLog("Sent name to " + conn._nickname);
         conn.send(['game', sessionify()]);
         addToLog("Sent game state to " + conn._nickname);
+        conn.send(["location", currentlocation]);
         announceNewPlayer(conn);
         announceAllPlayers(conn);
     });
@@ -1337,12 +1341,27 @@ var multiplayerMain = function(conn) {
                 addToLog("Received game data from " + conn._nickname);
                 if (!playing) {
                     loadSession(data);
+                    conn.send(["location", currentlocation]);
                 } else {
                     addToLog("...but don't need it, so ignoring");
                 };
                 break;
             case "location":
+                if (conn._location === data) break;
+                var lookAgain = false;
+
+                if (data === currentlocation) {
+                    addToLog(conn._nickname + " enters the room.");
+                    lookAgain = true;
+                } else if (conn._location === currentlocation) {
+                    addToLog(conn._nickname + " leaves the room.");
+                    lookAgain = true;
+                };
+
                 conn._location = data;
+                if (lookAgain && window.isLooking) {
+                    userLook();
+                };
                 break;
             case "name":
                 data = data.trim();
