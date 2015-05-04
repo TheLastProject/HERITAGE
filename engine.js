@@ -115,6 +115,10 @@ var isString = function(value) {
     return false;
 };
 
+var joinWithAnd = function(list) {
+    return list.splice(0, list.length - 1).join(', ') + " and " + list[list.length-1];
+};
+
 var sessionify = function() {
     if (!gameinfo["title"]) { gameinfo["title"] = "Unknown Game" }
     if (!gameinfo["author"]) { gameinfo["author"] = "Unknown Author" }
@@ -836,13 +840,20 @@ var userLook = function() {
         show(format(rooms[currentlocation]["first_enter"]));
         roomhistory.push(currentlocation);
     } else {
+        var otherplayers = [];
         for (var i = 0; i < window.conns.length; i++) {
             if (window.conns[i]._location == currentlocation) {
-                show(format(rooms[currentlocation]["description"]) + '\n\n' + window.conns[i]._nickname + " is here too.");
-                return;
+                otherplayers.push(window.conns[i]._nickname);
             };
         };
-        show(format(rooms[currentlocation]["description"]));
+        var roomdescription = format(rooms[currentlocation]["description"]);
+        if (otherplayers.length == 0) {
+            show(roomdescription);
+        } else if (otherplayers.length == 1) {
+            show(roomdescription + '\n\n' + otherplayers[0] + " is here too.");
+        } else {
+            show(roomdescription + '\n\n' + joinWithAnd(otherplayers) + " are here too.");
+        };
     };
 };
 
