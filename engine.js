@@ -120,27 +120,30 @@ var joinWithAnd = function(list) {
     return list.splice(0, list.length - 1).join(', ') + " and " + list[list.length-1];
 };
 
-var sessionify = function() {
-    if (!gameinfo["title"]) { gameinfo["title"] = "Unknown Game" }
+var sessionify = function(complete) {
+    if (!info["title"]) { gameinfo["title"] = "Unknown Game" }
     if (!gameinfo["author"]) { gameinfo["author"] = "Unknown Author" }
     var session = {
-        'savetime' : Date.now(),
         'gameinfo' : gameinfo,
         'variables' : variables,
         'rooms' : rooms,
-        'roomhistory' : roomhistory,
         'items' : items,
         'actions' : actions,
         'exits' : exits,
         'inventory' : inventory,
-        'currentlocation' : currentlocation
+    };
+
+    if (complete) {
+        session['savetime'] = Date.now();
+        session['roomhistory'] = roomhistory;
+        session['currentlocation'] = currentlocation;
     };
 
     return session;
 };
 
 var saveSession = function() {
-    var session = sessionify();
+    var session = sessionify(true);
 
     var games;
     if (localStorage.getItem('savedGames')) {
@@ -176,12 +179,20 @@ var loadSession = function(session) {
     gameinfo = session["gameinfo"];
     variables = session["variables"];
     rooms = session["rooms"];
-    roomhistory = session["roomhistory"];
+    if (session["roomhistory"]) {
+        roomhistory = session["roomhistory"];
+    } else {
+        roomhistory = [];
+    };
     items = session["items"];
     actions = session["actions"];
     exits = session["exits"];
     inventory = session["inventory"];
-    currentlocation = session["currentlocation"];
+    if (session["currentlocation"]) {
+        currentlocation = session["currentlocation"];
+    } else {
+        currentlocation = "0.0.0";
+    };
     parseInput("start");
 };
 
@@ -791,6 +802,7 @@ var executeActions = function(objectid) {
                     var index = inventory.indexOf(item);
                     if (index > -1) {
                         inventory.splice(index, 1);
+                        sendMultiplayerMessage("inventoryremove", item);
                     };
                 };
                 break;
@@ -798,6 +810,7 @@ var executeActions = function(objectid) {
                 for (item in itemlist) {
                     var item = itemlist[item];
                     inventory.push(item);
+                    sendMultiplayerMessage("inventoryadd", item);
                 };
                 break;
             case "drop":
@@ -806,6 +819,7 @@ var executeActions = function(objectid) {
                     var index = inventory.indexOf(item);
                     if (index > -1) {
                         inventory.splice(index, 1);
+                        sendMultiplayerMessage("inventoryremove", item);
                     };
                     addRoomItem(currentlocation, item);
                 };
@@ -942,8 +956,12 @@ var getVarValue = function(variable) {
     return variables[variable];
 };
 
-var setVarValue = function(variable, value) {
+var setVarValue = function(variable, value, broadcast) {
+    broadcast = typeof broadcast !== 'undefined' ? broadcast : true;
     variables[variable] = value;
+    if (broadcast && variable[0] != "_") {
+        sendMultiplayerMessage("var", [variable, value]);
+    };
 };
 
 var calculateNewValue = function(variable, operator, value) {
@@ -1119,14 +1137,22 @@ var getRoomItems = function(roomname) {
     return founditems;
 };
 
-var addRoomItem = function(roomname, itemname) {
+var addRoomItem = function(roomname, itemname, broadcast) {
+    broadcast = typeof broadcast !== 'undefined' ? broadcast : true;
     rooms[roomname]["items"] += "," + itemname;
+    if (broadcast) {
+        sendMultiplayerMessage("roomitemadd", [roomname, itemname]);
+    };
 };
 
-var removeRoomItem = function(roomname, itemname) {
+var removeRoomItem = function(roomname, itemname, broadcast) {
+    broadcast = typeof broadcast !== 'undefined' ? broadcast : true;
     // TODO: This code doesn't care for edge cases /at all/. Could cause problems later on.
     itemindex = rooms[roomname]["items"].indexOf(itemname);
     rooms[roomname]["items"] = rooms[roomname]["items"].substr(0,itemindex) + rooms[roomname]["items"].substr(itemindex+itemname.length+1);
+    if (broadcast) {
+        sendMultiplayerMessage("roomitemremove", [roomname, itemname]);
+    };
 };
 
 var getRoomExits = function(roomname) {
@@ -1271,6 +1297,7 @@ var userTake = function(input) {
     if (arraylocation > -1) {
         if (items[itemname] && items[itemname]["allow_take"]) {
             inventory.push(itemname);
+            sendMultiplayerMessage("inventoryadd", itemname);
             removeRoomItem(currentlocation, itemname);
             show("You take the " + itemname + ".");
             return 0;
@@ -1293,7 +1320,7 @@ var startServer = function() {
 
     prepareConnect();
     window.peer.on('open', function(id) {
-        addToLog("A friend can join this game by typing '/join " + id + "'");
+        addToLog("A friend can join this game by typing '/join " + id + "'.");
     });
 };
 
@@ -1323,14 +1350,15 @@ var multiplayerMain = function(conn) {
         conn._location = null;
         window.conns.push(conn);
         conn.send(['name', window.username]);
-        addToLog("Sent name to " + conn._nickname);
-        conn.send(['game', sessionify()]);
-        addToLog("Sent game state to " + conn._nickname);
+        addToLog("Sent name to " + conn._nickname + ".");
+        conn.send(['game', sessionify(false)]);
+        addToLog("Sent game state to " + conn._nickname + ".");
         conn.send(["location", currentlocation]);
         announceNewPlayer(conn);
         announceAllPlayers(conn);
     });
     conn.on('data', function(data) {
+        console.log(data);
         var type = data[0];
         var data = data[1];
         switch(type) {
@@ -1338,12 +1366,23 @@ var multiplayerMain = function(conn) {
                 addToLog(conn._nickname + ' says, "' + data + '"');
                 break;
             case 'game':
-                addToLog("Received game data from " + conn._nickname);
+                addToLog("Received game data from " + conn._nickname + ".");
                 if (!playing) {
                     loadSession(data);
                     conn.send(["location", currentlocation]);
                 } else {
-                    addToLog("...but don't need it, so ignoring");
+                    addToLog("...but don't need it, so ignoring.");
+                };
+                break;
+            case "inventoryadd":
+                inventory.push(data);
+                break;
+            case "inventoryremove":
+                var index = inventory.indexOf(data);
+                if (index > -1) {
+                    inventory.splice(index, 1);
+                } else {
+                    addToLog("WARNING: Inventories out of sync!");
                 };
                 break;
             case "location":
@@ -1381,31 +1420,50 @@ var multiplayerMain = function(conn) {
                         };
                     };
                 };
-                addToLog(conn._nickname + " is now known as " + data);
+                addToLog(conn._nickname + " is now known as " + data + ".");
                 conn._nickname = data;
                 break;
             case "nameinuse":
                 show("Your chosen name, " + window.username + ", is already in use. Please choose a new name.", "error");
                 window.username = ""; // Force setting of username
                 break;
-            case 'newplayer':
-                addToLog("Received request to connect to " + data);
+            case "newplayer":
+                addToLog("Received request to connect to " + data + "...");
                 if (window.peer.id == data) {
-                    addToLog("...but we are " + data);
+                    addToLog("...but we are " + data + ".");
                     return;
                 };
                 for (var i = 0; i < window.conns.length; i++) {
                     if (window.conns[i].peer == data) {
-                        addToLog("...but we are already connected to " + data);
+                        addToLog("...but we are already connected to " + data + ".");
                         return;
                     };
                 };
 
                 connectToPlayer(data);
-                addToLog("Connected to " + data);
+                addToLog("Connected to " + data + ".");
+                break;
+            case "roomitemadd":
+                addRoomItem(data[0], data[1], false);
+                if (window.isLooking && data[0] == currentlocation) {
+                    userLook();
+                };
+                break;
+            case "roomitemremove":
+                removeRoomItem(data[0], data[1], false);
+                if (window.isLooking && data[0] == currentlocation) {
+                    userLook();
+                };
+                break;
+            case "var":
+                setVarValue(data[0], data[1], false);
+                // Variable could possibly affect the current room
+                if (window.isLooking) {
+                    userLook();
+                };
                 break;
             default:
-                addToLog("Unknown message type received from " + conn._nickname + ": " + type);
+                addToLog("Unknown message type received from " + conn._nickname + ": " + type + ".");
         };
     });
     conn.on('error', function(err) {
