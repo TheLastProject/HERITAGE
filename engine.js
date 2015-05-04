@@ -22,10 +22,15 @@
 */
 
 $(document).ready( function() {
+    window.username = "";
+
     // Register empty command history command
     window.commandhistory = [];
     window.commandposition = 0;
     window.log = [];
+
+    window.peer = null; // Multiplayer connectivity
+    window.conns = []; // List of connections and related data
 
     // Start log timer
     setInterval(function() { manageAndShowLog() }, 1000);
@@ -70,27 +75,29 @@ $(document).ready( function() {
 
     // Save the session on unload
     window.addEventListener("beforeunload", function( event ) {
-        if (!playing) { return; }
+        stopMultiplayer();
+        if (!playing) return;
+
         show("Saving session...");
         saveSession();
         show("Saving session... Done!");
     });
 
-    // Show home screen
-    showHome();
+    show("Who will be going on adventure today?");
+});
 
+var showHome = function() {
     // Check if a game URL has already been passed (example.com/HERITAGE/?url_to_load)
     var toload = window.location.search.substring(1);
     if (toload) {
         parseInput("load " + toload);
-    }
-});
+        return;
+    };
 
-var showHome = function() {
-    $("#message").html('<p>Welcome to HERITAGE.</p><p>Heritage Equals Retro Interpreting Text Adventure Game Engine</p><p>Type "help" for help.</p>');
+    show('<p>Hello ' + window.username + ', welcome to HERITAGE.</p><p>Heritage Equals Retro Interpreting Text Adventure Game Engine.</p><p>Type "help" for help.</p>', "html");
     if (supports_html_storage && localStorage.length > 0 && localStorage.savedGames.length > 0) {
         show($("#message").html() + 'Saved sessions found. Type "loadsave" to load a saved session, or "clearsaves" to delete all sessions in progress.', "html");
-    }
+    };
 };
 
 var supports_html_storage = function () {
@@ -155,7 +162,7 @@ var loadSessionFromLocalStorage = function(id) {
     if (!sessions[loadedgame]) {
         show("Could not find session with id " + id);
         return;
-    }
+    };
 
     loadSession(sessions[loadedgame]);
 };
@@ -178,13 +185,17 @@ var escapeHTML = function( s ) {
 };
 
 var show = function(message, type) {
-    if (typeof(variables) != "undefined" && getVarValue("_game_over")) { type = "game_over"; }
+    if (typeof(variables) != "undefined" && getVarValue("_game_over")) {
+        type = "game_over";
+    };
+
     if (type != "html") {
         var message = escapeHTML(message).split("\n").join("<br />");
         if (message.substr(0,6) == "<br />") {
             message = message.substr(6);
-        }
+        };
     };
+
     switch (type) {
         case "error": $("#message").html("<span class='error'>" + message + "</span>"); break;
         case "html": $("#message").html("<p>" + message + "</p>"); break;
@@ -195,6 +206,7 @@ var show = function(message, type) {
 
 var addToLog = function(message) {
     window.log.push([message, 30]);
+    manageAndShowLog(); // Instantly reparse log to prevent up to 1 second delay
 };
 
 var manageAndShowLog = function() {
@@ -300,7 +312,7 @@ var initComplete = function(gamename, gamedata, importedfiles, importqueue) {
     $.each(importedfiles, function() {
         sourcemessage += " <a href='" + gamename + "/" + this + ".heritage'>" + this + "</a>";
     });
-    show(gamemessage + "<br />" + sourcemessage + "<br /><br />Type 'start' to start a private game, or 'start multiplayer' to start a multiplayer game", "html");
+    show(gamemessage + "<br />" + sourcemessage + "<br /><br />Type 'start' to start a private game, or 'start multiplayer' to start a multiplayer game.", "html");
 };
 
 var startGame = function(multiplayer) {
@@ -436,6 +448,10 @@ var parseInput = function(input) {
      * current turn pseudo-variable by one.
      */
     $( "#inputbar" ).val("");
+    if (!window.username) {
+        setUsername(input);
+        return;
+    };
     var failure = parseInputReal(input);
     if(!failure) {
         setVarValue("_turn", getVarValue("_turn") + 1);
@@ -510,6 +526,13 @@ var parseInputReal = function(input) {
         input = "go " + splitinput[1];
     };
 
+    if (splitinput[0][0] == '/') {
+        coreCommand = true;
+        splitinput[0] = splitinput[0].slice(1);
+    } else {
+        coreCommand = false;
+    };
+
     // Core functions
     switch (splitinput[0]) {
         case "help":
@@ -557,7 +580,7 @@ var parseInputReal = function(input) {
                     startGame(true);
                 }
                 return 1;
-            } else if (splitinput.length == 2 && splitinput[1] == 'multiplayer') {
+            } else if ((!playing || coreCommand) && splitinput.length == 2 && splitinput[1] == 'multiplayer') {
                 startServer();
                 return 1;
             };
@@ -580,6 +603,7 @@ var parseInputReal = function(input) {
 
             var movefail = userMove(splitinput.slice(1).join(" "), false);
             if (!movefail) {
+                sendMultiplayerMessage("location", currentlocation);
                 userLook();
             };
             return 0;
@@ -609,16 +633,29 @@ var parseInputReal = function(input) {
             show("You wait...");
             return 0;
         case "x":
-            splitinput[0] = "examine";
+            command = "examine";
             input = "examine " + input.substr(2);
             break;
         case "join":
+            if (playing && !coreCommand) break;
+
             if (splitinput.length != 2) {
-                show("Error: Incorrect argument count. Correct usage: 'join <id>'.", "error");
+                show("Error: Incorrect argument count. Correct usage: '/join <id>'.", "error");
                 return 3;
             };
-            connectServer(splitinput[1]);
-            return 0;
+            prepareConnect();
+            connectToPlayer(splitinput[1]);
+            return 1;
+        case "say":
+            if (!playing || !coreCommand) break;
+
+            sendMultiplayerChatMessage(splitinput.slice(1).join(" "));
+            return 1;
+        case "username":
+            if (playing && !coreCommand) break;
+
+            setUsername(splitinput.slice(1).join(" "));
+            return 1;
     };
 
     if (!playing) {
@@ -777,11 +814,34 @@ var executeActions = function(objectid) {
     };
 };
 
+var setUsername = function(username) {
+    username = username.trim();
+    if (!username) {
+        show("Please enter a valid name.", "error");
+        return;
+    };
+
+    window.username = username;
+
+    if (playing) {
+        sendMultiplayerMessage("name", window.username);
+        userLook();
+    } else {
+        showHome();
+    };
+};
+
 var userLook = function() {
     if (rooms[currentlocation]["first_enter"] && (roomhistory.indexOf(currentlocation) == -1)) {
         show(format(rooms[currentlocation]["first_enter"]));
         roomhistory.push(currentlocation);
     } else {
+        for (var i = 0; i < window.conns.length; i++) {
+            if (window.conns[i]._location == currentlocation) {
+                show(format(rooms[currentlocation]["description"]) + '\n\n' + window.conns[i]._nickname + " is here too.");
+                return;
+            };
+        };
         show(format(rooms[currentlocation]["description"]));
     };
 };
@@ -1217,31 +1277,143 @@ var startServer = function() {
         return;
     };
 
-    var peer = new Peer({key: 'lwjd5qra8257b9'});
-    peer.on('open', function(id) {
-        addToLog("A friend can join your game by typing 'join " + id + "'");
-    });
-    peer.on('connection', function(conn) {
-        addToLog("Player " + conn.id + " connected");
-        conn.on('open', function() {
-            conn.send(sessionify());
-            addToLog("Sent game state to player " + conn.id);
-        });
+    prepareConnect();
+    window.peer.on('open', function(id) {
+        addToLog("A friend can join this game by typing '/join " + id + "'");
     });
 };
 
-var connectServer = function(id) {
-    var peer = new Peer({key: 'lwjd5qra8257b9'});
-    var conn = peer.connect(id, {reliable: true});
-    conn.on('open', function() {
-        addToLog("Joined game from player " + conn.id);
-        conn.on('data', function(data) {
-            loadSession(data);
-            addToLog("Received game data from player " + conn.id);
+var prepareConnect = function() {
+    window.peer = new Peer({host: 'localhost', port: 9000});
+    window.peer.on('open', function(id) {
+        window.peer.on('connection', function(conn) {
+            multiplayerMain(conn);
         });
     });
+    window.peer.on('disconnected', function() {
+        window.peer.reconnect();
+    });
+    window.peer.on('error', function(err) {
+        addToLog(err);
+    });
+};
+
+var connectToPlayer = function(id) {
+    var conn = window.peer.connect(id, {reliable: true});
+    multiplayerMain(conn);
+};
+
+var multiplayerMain = function(conn) {
+    conn.on('open', function() {
+        conn._nickname = conn.peer;
+        conn._location = "0.0.0";
+        window.conns.push(conn);
+        conn.send(['name', window.username]);
+        addToLog("Sent name to " + conn._nickname);
+        conn.send(['game', sessionify()]);
+        addToLog("Sent game state to " + conn._nickname);
+        announceNewPlayer(conn);
+        announceAllPlayers(conn);
+    });
+    conn.on('data', function(data) {
+        var type = data[0];
+        var data = data[1];
+        switch(type) {
+            case 'chat':
+                addToLog(conn._nickname + ' says, "' + data + '"');
+                break;
+            case 'game':
+                addToLog("Received game data from " + conn._nickname);
+                if (!playing) {
+                    loadSession(data);
+                } else {
+                    addToLog("...but don't need it, so ignoring");
+                };
+                break;
+            case "location":
+                conn._location = data;
+                break;
+            case "name":
+                data = data.trim();
+                if (!data) {
+                    // Empty strings are silly
+                    conn.send(["nameinuse", ""]);
+                };
+                if (data == window.username) {
+                    conn.send(["nameinuse", ""]);
+                    return;
+                };
+                for (var i = 0; i < window.conns.length; i++) {
+                    if (window.conns[i] != conn) {
+                        if (window.conns[i]._nickname == data) {
+                            conn.send(["nameinuse", ""]);
+                            return;
+                        };
+                    };
+                };
+                addToLog(conn._nickname + " is now known as " + data);
+                conn._nickname = data;
+                break;
+            case "nameinuse":
+                show("Your chosen name, " + window.username + ", is already in use. Please choose a new name.", "error");
+                window.username = ""; // Force setting of username
+                break;
+            case 'newplayer':
+                addToLog("Received request to connect to " + data);
+                if (window.peer.id == data) {
+                    addToLog("...but we are " + data);
+                    return;
+                };
+                for (var i = 0; i < window.conns.length; i++) {
+                    if (window.conns[i].peer == data) {
+                        addToLog("...but we are already connected to " + data);
+                        return;
+                    };
+                };
+
+                connectToPlayer(data);
+                addToLog("Connected to " + data);
+                break;
+            default:
+                addToLog("Unknown message type received from " + conn._nickname + ": " + type);
+        };
+    });
+    conn.on('error', function(err) {
+        addToLog(err);
+    });
+};
+
+var sendMultiplayerMessage = function(type, message) {
+    for (var i = 0; i < window.conns.length; i++) {
+        window.conns[i].send([type, message]);
+    };
+};
+
+var sendMultiplayerChatMessage = function(message) {
+    sendMultiplayerMessage('chat', message);
+    addToLog(window.username + ' says, "' + message + '"');
+};
+
+var announceNewPlayer = function(conn) {
+    for (var i = 0; i < window.conns.length; i++) {
+        if (window.conns[i].peer != conn.peer) {
+            window.conns[i].send(['newplayer', conn.peer]);
+        };
+    };
+};
+
+var announceAllPlayers = function(conn) {
+    for (var i = 0; i < window.conns.length; i++) {
+        if (window.conns[i].id == conn.id) {
+            if (window.conns[i].peer != conn.peer && window.conns[i].peer != window.peer.id) {
+                window.conns[i].send(['newplayer', window.conns[i].peer]);
+            };
+        };
+    };
 };
 
 var stopMultiplayer = function() {
-    var peer = null;
+    if (window.peer) {
+        window.peer.destroy();
+    };
 };
