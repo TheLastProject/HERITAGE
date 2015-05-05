@@ -120,6 +120,10 @@ var joinWithAnd = function(list) {
     return list.splice(0, list.length - 1).join(', ') + " and " + list[list.length-1];
 };
 
+var escapeHTML = function( s ) {
+    return String(s).replace(/&(?!\w+;)/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+};
+
 var sessionify = function(complete) {
     if (!info["title"]) { gameinfo["title"] = "Unknown Game" }
     if (!gameinfo["author"]) { gameinfo["author"] = "Unknown Author" }
@@ -196,10 +200,6 @@ var loadSession = function(session) {
     parseInput("start");
 };
 
-var escapeHTML = function( s ) {
-    return String(s).replace(/&(?!\w+;)/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
-};
-
 var show = function(message, type) {
     window.isLooking = false;
     if (typeof(variables) != "undefined" && getVarValue("_game_over")) {
@@ -207,7 +207,7 @@ var show = function(message, type) {
     };
 
     if (type != "html") {
-        var message = escapeHTML(message).split("\n").join("<br />");
+        message = escapeHTML(message).split("\n").join("<br />");
         if (message.substr(0,6) == "<br />") {
             message = message.substr(6);
         };
@@ -216,7 +216,7 @@ var show = function(message, type) {
     switch (type) {
         case "error": $("#message").html("<span class='error'>" + message + "</span>"); break;
         case "html": $("#message").html("<p>" + message + "</p>"); break;
-        case "game_over": $("#message").html("<p>" + message + "</p><p class='error'>GAME OVER<br />Type 'start' to replay, or 'load' another game.</p>"); playing = false; break;
+        case "game_over": $("#message").html("<p>" + message + "</p><p class='error'>GAME OVER<br />Type 'start' to replay, or 'load' another game.</p>"); playing = false; stopMultiplayer(); break;
         default: $("#message").html("<p>" + message + "</p>");
     }
 };
@@ -258,7 +258,7 @@ var init = function(gamename) {
         gamedata[0] = filedata.split('\n');
 
         for (var linenumber = 0; linenumber < gamedata[0].length; linenumber++) {
-            var gameline = gamedata[0][linenumber];
+            var gameline = escapeHTML(gamedata[0][linenumber]);
 
             if (gameline.substr(0,7) == "import(") {
                 importqueue++;
@@ -835,7 +835,7 @@ var executeActions = function(objectid) {
 };
 
 var setUsername = function(username) {
-    username = username.trim();
+    username = escapeHTML(username.trim());
     if (!username) {
         show("Please enter a valid name.", "error");
         return;
@@ -1350,6 +1350,7 @@ var multiplayerMain = function(conn) {
         conn._nickname = conn.peer;
         conn._location = null;
         window.conns.push(conn);
+        addToLog(conn._nickname + " joins the game");
         conn.send(['name', window.username]);
         addToLog("Sent name to " + conn._nickname + ".");
         conn.send(['game', sessionify(false)]);
@@ -1358,10 +1359,21 @@ var multiplayerMain = function(conn) {
         announceNewPlayer(conn);
         announceAllPlayers(conn);
     });
+    conn.on('close', function() {
+        addToLog(conn._nickname + " left the game.");
+        for (var i = 0; i < window.conns.length; i++) {
+            if (window.conns[i]._nickname === conn._nickname) {
+                window.conns.splice(i, 1);
+                if (window.isLooking) {
+                    userLook();
+                };
+                return;
+            };
+        };
+    });
     conn.on('data', function(data) {
-        console.log(data);
         var type = data[0];
-        var data = data[1];
+        var data = escapeHTML(data[1]);
         switch(type) {
             case 'chat':
                 addToLog(conn._nickname + ' says, "' + data + '"');
@@ -1480,7 +1492,7 @@ var sendMultiplayerMessage = function(type, message) {
 
 var sendMultiplayerChatMessage = function(message) {
     sendMultiplayerMessage('chat', message);
-    addToLog(window.username + ' says, "' + message + '"');
+    addToLog('You say, "' + message + '"');
 };
 
 var announceNewPlayer = function(conn) {
@@ -1503,6 +1515,13 @@ var announceAllPlayers = function(conn) {
 
 var stopMultiplayer = function() {
     if (window.peer) {
+        for (var i = 0; i < window.conns.length; i++) {
+            window.conns[i].close();
+        };
+        window.conns = [];
         window.peer.destroy();
+        window.peer = null;
+
+        addToLog("Multiplayer connections closed. Use 'start multiplayer' to start a new multiplayer session.");
     };
 };
