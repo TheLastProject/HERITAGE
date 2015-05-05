@@ -939,6 +939,7 @@ var getVarValue = function(variable) {
      * _turn: get the current turn
      */
     switch(variable) {
+        case "_name": return window.username;
         case "_random": return parseInt(Math.random() * (100 - 1) + 1);
         case "_yesno": return parseInt(Math.random());
     };

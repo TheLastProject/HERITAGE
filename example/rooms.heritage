@@ -3,8 +3,7 @@
 /* A list of rooms, where the player will be hanging around */
 room(0.0.0):
     /* Your room */
-    first_enter: What is your name? #(_write_to=name)#
-    description: You are in !(name)!'s room.
+    description: You are in !(_name)!'s room.
 
                  It is a rather bland room, containing only a desk, a chair and some posters.
 
@@ -54,7 +53,7 @@ room(10.0.-1):
     description: You are standing in front of your friend's home.
 
                  The garden is fairly boring, but the door is a beautiful wooden door, a small doorbell next to it.
-    
+
                  North of you is a wooden door, to the south is the route back home.
     items: doorbell
     exits: south.2, north.3
