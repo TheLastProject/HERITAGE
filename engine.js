@@ -28,7 +28,6 @@ $(document).ready( function() {
     window.commandhistory = [];
     window.commandposition = 0;
     window.isLooking = false;
-    window.log = [];
 
     window.peer = null; // Multiplayer connectivity
     window.conns = []; // List of connections and related data
@@ -222,29 +221,20 @@ var show = function(message, type) {
 };
 
 var addToLog = function(message) {
-    window.log.push([message, 30]);
-    manageAndShowLog(); // Instantly reparse log to prevent up to 1 second delay
+    $("<div>").html('<em>' + message + ' (<span>30</span>)</em>').prependTo("#log").hide().slideDown();
 };
 
 var manageAndShowLog = function() {
-    var logMessages = [];
-
-    // Filter out old log messages
-    for (var i = window.log.length - 1; i >= 0; i--) {
-        window.log[i][1]--;
-        if (window.log[i][1] == 0) {
-            window.log.splice(i, 1);
+    $('#log > div').each(function() {
+        var timeelement = $(this).find('em').find('span');
+        var timevalue = timeelement.text();
+        timevalue--;
+        if (timevalue) {
+            timeelement.text(timevalue);
         } else {
-            logMessages.push(window.log[i][0] + ' <em>(' + window.log[i][1] + ')</em>');
+            $(this).slideUp();
         };
-    };
-
-    if (logMessages.length > 0) {
-        logMessages.push('<hr>');
-    };
-
-    // Show current messages
-    $("#log").html(logMessages.join('<br>'));
+    });
 };
 
 var init = function(gamename) {
@@ -588,8 +578,6 @@ var parseInputReal = function(input) {
             if (!playing) {
                 if (typeof(variables) != "undefined") {
                     setVarValue("_game_over", 0);
-                } else {
-                    break;
                 };
                 if (splitinput.length == 1) {
                     startGame();
@@ -1326,17 +1314,26 @@ var startServer = function() {
 };
 
 var prepareConnect = function() {
+    window.peerReconnectDelay = 0;
     window.peer = new Peer({host: 'localhost', port: 9000});
     window.peer.on('open', function(id) {
+        addToLog("Connection to connection broker established");
+        window.peerReconnectDelay = 1000; // Reset exponential backoff
         window.peer.on('connection', function(conn) {
             multiplayerMain(conn);
         });
     });
     window.peer.on('disconnected', function() {
-        window.peer.reconnect();
-    });
-    window.peer.on('error', function(err) {
-        addToLog(err);
+        if (!window.peerReconnectDelay) {
+            addToLog("Failed to start a multiplayer session, server may be offline. Type '/start multiplayer' to try again");
+            return;
+        };
+
+        window.peerReconnectDelay = 1.5*window.peerReconnectDelay;
+        setTimeout(function() {
+            addToLog("Attempting to reconnect to connection broker");
+            window.peer.reconnect();
+        }, window.peerReconnectDelay);
     });
 };
 
@@ -1352,15 +1349,15 @@ var multiplayerMain = function(conn) {
         window.conns.push(conn);
         addToLog(conn._nickname + " joins the game");
         conn.send(['name', window.username]);
-        addToLog("Sent name to " + conn._nickname + ".");
+        addToLog("Sent name to " + conn._nickname);
         conn.send(['game', sessionify(false)]);
-        addToLog("Sent game state to " + conn._nickname + ".");
+        addToLog("Sent game state to " + conn._nickname);
         conn.send(["location", currentlocation]);
         announceNewPlayer(conn);
         announceAllPlayers(conn);
     });
     conn.on('close', function() {
-        addToLog(conn._nickname + " left the game.");
+        addToLog(conn._nickname + " left the game");
         for (var i = 0; i < window.conns.length; i++) {
             if (window.conns[i]._nickname === conn._nickname) {
                 window.conns.splice(i, 1);
@@ -1379,12 +1376,12 @@ var multiplayerMain = function(conn) {
                 addToLog(conn._nickname + ' says, "' + data + '"');
                 break;
             case 'game':
-                addToLog("Received game data from " + conn._nickname + ".");
+                addToLog("Received game data from " + conn._nickname);
                 if (!playing) {
                     loadSession(data);
                     conn.send(["location", currentlocation]);
                 } else {
-                    addToLog("...but don't need it, so ignoring.");
+                    addToLog("...but don't need it, so ignoring");
                 };
                 break;
             case "inventoryadd":
@@ -1403,10 +1400,10 @@ var multiplayerMain = function(conn) {
                 var lookAgain = false;
 
                 if (data === currentlocation) {
-                    addToLog(conn._nickname + " enters the room.");
+                    addToLog(conn._nickname + " enters the room");
                     lookAgain = true;
                 } else if (conn._location === currentlocation) {
-                    addToLog(conn._nickname + " leaves the room.");
+                    addToLog(conn._nickname + " leaves the room");
                     lookAgain = true;
                 };
 
@@ -1433,7 +1430,7 @@ var multiplayerMain = function(conn) {
                         };
                     };
                 };
-                addToLog(conn._nickname + " is now known as " + data + ".");
+                addToLog(conn._nickname + " is now known as " + data);
                 conn._nickname = data;
                 break;
             case "nameinuse":
@@ -1441,20 +1438,20 @@ var multiplayerMain = function(conn) {
                 window.username = ""; // Force setting of username
                 break;
             case "newplayer":
-                addToLog("Received request to connect to " + data + "...");
+                addToLog("Received request to connect to " + data);
                 if (window.peer.id == data) {
-                    addToLog("...but we are " + data + ".");
+                    addToLog("...but we are " + data);
                     return;
                 };
                 for (var i = 0; i < window.conns.length; i++) {
                     if (window.conns[i].peer == data) {
-                        addToLog("...but we are already connected to " + data + ".");
+                        addToLog("...but we are already connected to " + data);
                         return;
                     };
                 };
 
                 connectToPlayer(data);
-                addToLog("Connected to " + data + ".");
+                addToLog("Connected to " + data);
                 break;
             case "roomitemadd":
                 addRoomItem(data[0], data[1], false);
@@ -1476,11 +1473,8 @@ var multiplayerMain = function(conn) {
                 };
                 break;
             default:
-                addToLog("Unknown message type received from " + conn._nickname + ": " + type + ".");
+                addToLog("Unknown message type received from " + conn._nickname + ": " + type);
         };
-    });
-    conn.on('error', function(err) {
-        addToLog(err);
     });
 };
 
