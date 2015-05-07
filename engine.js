@@ -1486,7 +1486,7 @@ var startServer = function() {
 
 var prepareConnect = function() {
     window.peerReconnectDelay = 0;
-    window.peer = new Peer({host: 'localhost', port: 9000});
+    window.peer = new Peer({host: 'heritage.contracode.nl', port: 9000});
     window.peer.on('open', function(id) {
         addToLog("Connection to connection broker established");
         window.peerReconnectDelay = 1000; // Reset exponential backoff
