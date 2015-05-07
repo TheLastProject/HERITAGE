@@ -7,4 +7,3 @@ var(door_bell_rang,0)
 var(said_goodbye_friend,0)
 var(friend_house_access,0)
 var(ready_for_phone,0)
-var(name, "");
