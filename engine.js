@@ -1489,8 +1489,8 @@ var prepareConnect = function() {
     window.peer = new Peer({host: 'heritage.contracode.nl', port: 9000,
                             config: {'iceServers': [
                                 { url: 'stun:stun.stunprotocol.org:3478' },
-                                { url: 'stun:numb.viagenie.ca:3478', credential: 'muazkh' },
-                                { url: 'turn:numb.viagenie.ca:3478', credential: 'muazkh' }
+                                { url: 'stun:numb.viagenie.ca:3478', credential: 'muazkh', username: 'webrtc@live.com' },
+                                { url: 'turn:numb.viagenie.ca:3478', credential: 'muazkh', username: 'webrtc@live.com' }
                             ]}});
     window.peer.on('open', function(id) {
         addToLog("Connection to connection broker established");
