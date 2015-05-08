@@ -1,5 +1,5 @@
 /*
-    @licstart  The following is the entire license notice for the 
+    @licstart  The following is the entire license notice for the
     JavaScript code in this page.
 
     Copyright (C) 2014 - 2015  SylvieLorxu <sylvie@contracode.nl>
@@ -22,9 +22,18 @@
 */
 
 $(document).ready( function() {
+    window.username = "";
+
     // Register empty command history command
     window.commandhistory = [];
     window.commandposition = 0;
+    window.isLooking = false;
+
+    window.peer = null; // Multiplayer connectivity
+    window.conns = []; // List of connections and related data
+
+    // Start log timer
+    setInterval(function() { manageAndShowLog() }, 1000);
 
     // Focus on the input bar
     document.getElementById("inputbar").focus();
@@ -66,27 +75,24 @@ $(document).ready( function() {
 
     // Save the session on unload
     window.addEventListener("beforeunload", function( event ) {
-        if (!playing) { return; }
-        show("Saving session...");
-        saveSession();
-        show("Saving session... Done!");
+        stopMultiplayer();
+        stopGame();
+        show("");
     });
 
-    // Show home screen
-    showHome();
-
-    // Check if a game URL has already been passed (example.com/HERITAGE/?url_to_load)
-    var toload = window.location.search.substring(1);
-    if (toload) {
-        parseInput("load " + toload);
-    }
+    show("Who will be going on adventure today?");
 });
 
 var showHome = function() {
-    $("#message").html('<p>Welcome to HERITAGE alpha.</p><p>Heritage Equals Retro Interpreting Text Adventure Game Engine</p><p>Type "help" for help.</p>');
-    if (supports_html_storage && localStorage.length > 0 && localStorage.savedGames.length > 0) {
-        show($("#message").html() + 'Saved sessions found. Type "loadsave" to load a saved session, or "clearsaves" to delete all sessions in progress.', "html");
-    }    
+    show('<p>Hello ' + window.username + ', welcome to HERITAGE.</p><p>Heritage Equals Retro Interpreting Text Adventure Game Engine.</p><p>Type "help" for help.</p>', "html");
+    if (supports_html_storage && localStorage.length > 0) {
+        if (localStorage.games && localStorage.games.length > 0) {
+            show($("#message").html() + "Cached games found. Type 'games' for a list of local games, or 'cleargames' to delete all locally cached games.</p><p>", "html");
+        };
+        if (localStorage.savedGames && localStorage.savedGames.length > 0) {
+            show($("#message").html() + "Saved sessions found. Type 'loadsave' to load a saved session, or 'clearsaves' to delete all sessions in progress.", "html");
+        };
+    };
 };
 
 var supports_html_storage = function () {
@@ -104,21 +110,46 @@ var isString = function(value) {
     return false;
 };
 
-var saveSession = function() {
-    if (!gameinfo["title"]) { gameinfo["title"] = "Unknown Game" }
-    if (!gameinfo["author"]) { gameinfo["author"] = "Unknown Author" }
+var joinWithAnd = function(list) {
+    return list.splice(0, list.length - 1).join(', ') + " and " + list[list.length-1];
+};
+
+var escapeHTML = function( s ) {
+    return String(s).replace(/&(?!\w+;)/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+};
+
+var stopGame = function() {
+    if (!playing) return;
+
+    show("Saving session...");
+    saveSession();
+    show("Saving session... Done!");
+};
+
+var sessionify = function(complete) {
+    if (!info && !info["title"]) { gameinfo["title"] = "Unknown Game" }
+    if (!info && !gameinfo["author"]) { gameinfo["author"] = "Unknown Author" }
     var session = {
-        'savetime' : Date.now(),
         'gameinfo' : gameinfo,
         'variables' : variables,
         'rooms' : rooms,
-        'roomhistory' : roomhistory,
         'items' : items,
         'actions' : actions,
         'exits' : exits,
         'inventory' : inventory,
-        'currentlocation' : currentlocation
     };
+
+    if (complete) {
+        session['savetime'] = Date.now();
+        session['roomhistory'] = roomhistory;
+        session['currentlocation'] = currentlocation;
+    };
+
+    return session;
+};
+
+var saveSession = function() {
+    var session = sessionify(true);
 
     var games;
     if (localStorage.getItem('savedGames')) {
@@ -137,7 +168,33 @@ var saveSession = function() {
     localStorage.setItem('savedGames', JSON.stringify(games));
 };
 
-var loadSession = function(id) {
+var saveGame = function(source) {
+    var games;
+    if (localStorage.getItem('games')) {
+        games = JSON.parse(localStorage.getItem('games'));
+    } else {
+        games = [];
+    };
+
+    // Make sure the game isn't already in the library
+    for (game in games) {
+        var toCheck = games[game]["gameinfo"];
+        if (toCheck["author"] == source["gameinfo"]["author"] && toCheck["title"] == source["gameinfo"]["title"] && toCheck["version"] == source["gameinfo"]["version"]) {
+            return;
+        };
+    };
+    games.push(source);
+
+    localStorage.setItem('games', JSON.stringify(games));
+};
+
+var loadGameFromLocalStorage = function(id) {
+    games = JSON.parse(localStorage.games);
+    window.sources = games[id - 1];
+    initStepTwo(0);
+};
+
+var loadSessionFromLocalStorage = function(id) {
     loadedgame = id - 1; // Save the game's slot so we can override it later
 
     var sessions = JSON.parse(localStorage.savedGames);
@@ -145,86 +202,168 @@ var loadSession = function(id) {
     if (!sessions[loadedgame]) {
         show("Could not find session with id " + id);
         return;
-    }
+    };
 
-    var restore_session = sessions[loadedgame];
-
-    gameinfo = restore_session["gameinfo"];
-    variables = restore_session["variables"];
-    rooms = restore_session["rooms"];
-    roomhistory = restore_session["roomhistory"];
-    items = restore_session["items"];
-    actions = restore_session["actions"];
-    exits = restore_session["exits"];
-    inventory = restore_session["inventory"];
-    currentlocation = restore_session["currentlocation"];
-    parseInput("start");
+    loadSession(sessions[loadedgame]);
 };
 
-var escapeHTML = function( s ) {
-    return String(s).replace(/&(?!\w+;)/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+var loadSession = function(session) {
+    gameinfo = {};
+    for (variable in session["gameinfo"]) {
+        gameinfo[variable] = escapeHTML(session["gameinfo"][variable]);
+    };
+
+    variables = {};
+    for (variable in session["variables"]) {
+        variables[variable] = escapeHTML(session["variables"][variable]);
+    };
+
+    rooms = {};
+    for (variable in session["rooms"]) {
+        rooms[variable] = {};
+        for (subvariable in session["rooms"][variable]) {
+            rooms[variable][subvariable] = escapeHTML(session["rooms"][variable][subvariable]);
+        };
+    };
+
+    roomhistory = [];
+    for (variable in session["roomhistory"]) {
+        roomhistory.push(escapeHTML(variable));
+    };
+
+    items = {};
+    for (variable in session["items"]) {
+        items[variable] = {};
+        for (subvariable in session["items"][variable]) {
+            items[variable][subvariable] = escapeHTML(session["items"][variable][subvariable]);
+        };
+    };
+
+    actions = {};
+    for (variable in session["actions"]) {
+        actions[variable] = {};
+        for (subvariable in session["actions"][variable]) {
+            actions[variable][subvariable] = escapeHTML(session["actions"][variable][subvariable]);
+        };
+    };
+
+    exits = {};
+    for (variable in session["exits"]) {
+        exits[variable] = {};
+        for (subvariable in session["exits"][variable]) {
+            exits[variable][subvariable] = escapeHTML(session["exits"][variable][subvariable]);
+        };
+    };
+
+    inventory = [];
+    for (variable in session["inventory"]) {
+        inventory.push(escapeHTML(variable));
+    };
+
+    if (session["currentlocation"]) {
+        currentlocation = escapeHTML(session["currentlocation"]);
+    } else {
+        currentlocation = "0.0.0";
+    };
 };
 
 var show = function(message, type) {
-    if (typeof(variables) != "undefined" && getVarValue("_game_over")) { type = "game_over"; }
+    window.isLooking = false;
+    if (typeof(variables) != "undefined" && getVarValue("_game_over")) {
+        type = "game_over";
+    };
+
     if (type != "html") {
-        var message = escapeHTML(message).split("\n").join("<br />");
+        message = escapeHTML(message).split("\n").join("<br />");
         if (message.substr(0,6) == "<br />") {
             message = message.substr(6);
-        }
+        };
     };
+
     switch (type) {
         case "error": $("#message").html("<span class='error'>" + message + "</span>"); break;
         case "html": $("#message").html("<p>" + message + "</p>"); break;
-        case "game_over": $("#message").html("<p>" + message + "</p><p class='error'>GAME OVER<br />Type 'start' to replay, or 'load' another game.</p>"); playing = false; break;
+        case "game_over": $("#message").html("<p>" + message + "</p><p class='error'>GAME OVER<br />Type 'start' to replay, or 'load' another game.</p>"); playing = false; stopMultiplayer(); break;
         default: $("#message").html("<p>" + message + "</p>");
     }
 };
 
+var addToLog = function(message) {
+    $("<div>").html('<em>' + message + ' (<span>30</span>)</em>').prependTo("#log").hide().slideDown();
+};
+
+var manageAndShowLog = function() {
+    $('#log > div').each(function() {
+        var timeelement = $(this).find('em').find('span');
+        var timevalue = timeelement.text();
+        timevalue--;
+        if (timevalue) {
+            timeelement.text(timevalue);
+        } else {
+            $(this).slideUp();
+        };
+    });
+};
+
 var init = function(gamename) {
     playing = false;
-    var gamedata = [];
-    var importedfiles = [];
+    // Keep game sources in memory to share on multiplayer and cache locally
+    window.sources = {gamename: gamename};
     var importqueue = 1;
 
     $.get(gamename + "/main.heritage", function( filedata ) {
-        show("Downloading game file(s)...");
-        gamedata[0] = filedata.split('\n');
+        show("Downloading game file(s)...")
+        var filedata = filedata.split('\n');
+        window.sources["main.heritage"] = filedata;
 
-        for (var linenumber = 0; linenumber < gamedata[0].length; linenumber++) {
-            var gameline = gamedata[0][linenumber];
+        for (var linenumber = 0; linenumber < filedata.length; linenumber++) {
+            var gameline = filedata[linenumber];
 
             if (gameline.substr(0,7) == "import(") {
                 importqueue++;
-                var importname = gameline.substr(7).split(")")[0];
+                var importname = gameline.substr(7).split(")")[0] + ".heritage";
 
                 if (importname.indexOf("../") != -1) {
                     show("Failed to load import file " + importname + ".heritage (HERITAGE security exception: traversing directory upwards not allowed)", "error");
                     return;
                 };
 
-                $.get(gamename + "/" + importname + ".heritage", function ( importedgamedata ) {
-                    var filename = this.url.slice(this.url.lastIndexOf("/") + 1).slice(0,-9);
-                    importedfiles.push(filename);
-                    // Insert import data at the space the import statement is
-                    gamedata[importedfiles.indexOf(filename)+1] = importedgamedata.split('\n');
+                $.get(gamename + "/" + importname, function ( importedgamedata ) {
+                    window.sources[this.url.slice(this.url.lastIndexOf("/") + 1)] = importedgamedata.split('\n');
                     importqueue--;
-                    initComplete(gamename, gamedata, importedfiles, importqueue);
+                    initStepTwo(importqueue);
                 }, "text").fail(function() { show("Failed to load import file " + this.url.slice(this.url.lastIndexOf("/") + 1) + " (AJAX request failed)", "error"); return;});
             }
         };
 
         importqueue--;
-        initComplete(gamename, gamedata, importedfiles, importqueue);
+        initStepTwo(importqueue);
     }, "text").fail(function() { show("Failed to load game files (AJAX request failed)", "error") });
 };
 
-var initComplete = function(gamename, gamedata, importedfiles, importqueue) {
+var initStepTwo = function(importqueue) {
     // Wait until all importing is done
     if (importqueue > 0) return;
 
-    gamedata = [].concat.apply([], gamedata);
+    show("Combining game sources...");
 
+    var gamedata = [];
+    var imports = [];
+    for (var i = 0; i < window.sources["main.heritage"].length; i++) {
+        if (window.sources["main.heritage"][i].substr(0,7) == "import(") {
+            var importname = window.sources["main.heritage"][i].substr(7).split(")")[0] + ".heritage";
+            imports.push(importname);
+            for (var j = 0; j < window.sources[importname].length; j++) {
+                gamedata.push(window.sources[importname][j]);
+            };
+        } else {
+            gamedata.push(window.sources["main.heritage"][i]);
+        };
+    };
+    initComplete(gamedata, imports);
+};
+
+var initComplete = function(gamedata, imports) {
     // Load all the game data into Javascript variables so that it can be played
     currentsetting = "";
     gameinfo = {};
@@ -244,13 +383,18 @@ var initComplete = function(gamename, gamedata, importedfiles, importqueue) {
 
         // Prevent HERITAGE from showing a blank line if the line is completely comment
         if (!gameline && gamedata[linenumber].trim()) continue;
-        
+
         if (gameline.substr(0,7) == "import(") continue;
 
         var newmode = initGetMode(gameline, currentmode);
-        if (currentmode && (currentmode == newmode)) { parseForMode(gameline, currentmode); }
+        if (currentmode && (currentmode == newmode)) {
+            parseForMode(gameline, currentmode);
+        };
         var currentmode = newmode;
     };
+
+    window.sources["gameinfo"] = gameinfo;
+    saveGame(window.sources);
 
     currentlocation = "0.0.0";
     // Done initializing, display info!
@@ -259,15 +403,18 @@ var initComplete = function(gamename, gamedata, importedfiles, importqueue) {
         gamemessage += escapeHTML(info + ": " + gameinfo[info]) + "<br />";
     };
 
-    var sourcemessage = "Source file(s): <a href='" + gamename + "/main.heritage'>main</a>";
-    $.each(importedfiles, function() {
-        sourcemessage += " <a href='" + gamename + "/" + this + ".heritage'>" + this + "</a>";
+    var sourcemessage = "Source file(s): <a href='" + window.sources["gamename"] + "/main.heritage'>main.heritage</a>";
+    $.each(imports, function() {
+        sourcemessage += " <a href='" + window.sources["gamename"] + "/" + this + "'>" + this + "</a>";
     });
-    show(gamemessage + "<br />" + sourcemessage + "<br /><br />Type start to start", "html");
+    show(gamemessage + "<br />" + sourcemessage + "<br /><br />Type 'start' to start a private game, or 'start multiplayer' to start a multiplayer game.", "html");
 };
 
-var startgame = function() {
+var startGame = function(multiplayer) {
     playing = true;
+    if (multiplayer) {
+        startServer();
+    };
     userLook();
 };
 
@@ -390,12 +537,16 @@ var parseForMode = function(line, currentmode) {
 };
 
 var parseInput = function(input) {
-    /* This function receives the input, and passes it on to another function 
+    /* This function receives the input, and passes it on to another function
      * which will return 0 on success, and non-zero on fail.
-     * If the input was succesful, and we're playing a match, we increment the 
+     * If the input was succesful, and we're playing a match, we increment the
      * current turn pseudo-variable by one.
      */
     $( "#inputbar" ).val("");
+    if (!window.username) {
+        setUsername(input);
+        return;
+    };
     var failure = parseInputReal(input);
     if(!failure) {
         setVarValue("_turn", getVarValue("_turn") + 1);
@@ -470,62 +621,138 @@ var parseInputReal = function(input) {
         input = "go " + splitinput[1];
     };
 
+    if (splitinput[0][0] == '/') {
+        coreCommand = true;
+        splitinput[0] = splitinput[0].slice(1);
+    } else {
+        coreCommand = false;
+    };
+
     // Core functions
     switch (splitinput[0]) {
         case "help":
+            if (playing && !coreCommand)
+                break;
+
             show("Type 'load &lt;gamename/URL&gt;' to load a game. An example game is available under the name 'example' (type 'load example' to load it).</p><p>When in-game, you can look around using 'look', go somewhere using 'go', take something using 'take' or 'grab' and check your inventory using 'inventory'.</p><p>That is all for the introduction.</p><p>Remember, games can register any commands themselves. 'examine' posters, 'sit on' a chair, experiment and have fun!", "html");
             return 1;
+        case "games":
+            if (playing && !coreCommand)
+                break;
+
+            var toShow = ["To load a game, type 'load' followed by the game number.<br/>To get a list of games in progress, type 'saves'.<br/>"];
+            JSON.parse(localStorage.getItem('games')).forEach(function( gamedata ) {
+                toShow.push(toShow.length + ". " + gamedata["gameinfo"]["title"] + " by " + gamedata["gameinfo"]["author"] + " (version " + gamedata["version"] + ")");
+            });
+            show(toShow.join("<br />"), "html");
+            return 1;
+        case "cleargames":
+            if (playing && !coreCommand)
+                break;
+
+            // Delete all games
+            localStorage.games = [];
+            showHome();
+            return 1;
         case "load":
+            if (playing && !coreCommand)
+                break;
+
             // Start initializing the chosen game
             if (splitinput.length > 1) {
-                var toload = splitinput.splice(1).join("%20");
-                init(toload);
+                if (splitinput.length == 2 && parseInt(splitinput[1]) == splitinput[1]) {
+                    loadGameFromLocalStorage(splitinput[1]);
+                } else {
+                    var toload = splitinput.splice(1).join("%20");
+                    init(toload);
+                };
             } else {
-                 show("Error: Incorrect argument count. Correct usage: 'load <gamename/URL>'.", "error");
+                 show("Error: Incorrect argument count. Correct usage: 'load <gamename/URL/gamenumber>'.", "error");
             };
             return 1;
+        case "saves":
+            if (playing && !coreCommand)
+                break;
+
+            var toShow = ["To restore a session, type 'loadsave' followed by the session number.<br />"];
+            JSON.parse(localStorage.getItem('savedGames')).forEach(function( sessiondata ) {
+                toShow.push(toshow.length + ". " + sessiondata["gameinfo"]["title"] + " by " + sessiondata["gameinfo"]["author"] + " (" + new Date(sessiondata["savetime"]).toString() + ")");
+            });
+            show(toShow.join("<br />"), "html");
+            return 1;
         case "loadsave":
+            if (playing && !coreCommand)
+                break;
+
             // Restore a saved session
-            if (playing) { break; }
-            if (localStorage.savedGames.length == 0) { show("There are no sessions in progress to load"); return 1; }
+            if (localStorage.savedGames.length == 0) {
+                show("There are no sessions in progress to load");
+                return 1;
+            }
+
             if (splitinput.length > 1) {
-                loadSession(splitinput[1]);
+                loadSessionFromLocalStorage(splitinput[1]);
             } else {
-                var toshow = ["To restore a session, type 'loadsave' followed by the session number.<br />"];
-                JSON.parse(localStorage.getItem('savedGames')).forEach(function( sessiondata ) {
-                    toshow.push(toshow.length + ". " + sessiondata["gameinfo"]["title"] + " by " + sessiondata["gameinfo"]["author"] + " (" + new Date(sessiondata["savetime"]).toString() + ")");
-                });
-                show(toshow.join("<br />"), "html");
+                show("Error: Incorrect argument count. Correct usage: 'loadsave <savenumber>'.", "error");
             }
             return 1;
         case "clearsaves":
+            if (playing && !coreCommand)
+                break;
+
             // Delete all saves
-            if (playing) { break; }
             localStorage.savedGames = [];
             showHome();
             return 1;
         case "start":
-            if (splitinput.length == 1 && !playing) {
+            if (!playing) {
                 if (typeof(variables) != "undefined") {
                     setVarValue("_game_over", 0);
-                } else {
-                    break;
                 };
-                startgame();
+
+                if (window.sources) {
+                    initStepTwo();
+                };
+
+                if (splitinput.length == 1) {
+                    startGame();
+                } else if (splitinput.length == 2 && splitinput[1] == 'multiplayer') {
+                    startGame(true);
+                };
+
+                return 1;
+            } else if (coreCommand && splitinput.length == 2 && splitinput[1] == 'multiplayer') {
+                startServer();
                 return 1;
             };
             break;
+        case "stop":
+            if (playing && !coreCommand)
+                break;
+
+            if (splitinput.length == 1) {
+                stopMultiplayer();
+                stopGame();
+                showHome();
+            } else if (splitinput.length == 2 && splitinput[1] == 'multiplayer') {
+                stopMultiplayer();
+            };
+            return 1;
         case "again":
         case "g":
             parseInput(commandhistory[commandhistory.length-1]);
             return 1;
         case "inventory":
         case "i":
-            if (!playing) { break; }
+            if (!playing)
+                break;
+
             userInventory();
             return 1;
         case "go":
-            if (!playing) { break; }
+            if (!playing)
+                break;
+
             if (splitinput.length < 1) {
                 show("Error: Incorrect argument count. Correct usage: 'go <direction>'.", "error");
                 return 3;
@@ -533,13 +760,16 @@ var parseInputReal = function(input) {
 
             var movefail = userMove(splitinput.slice(1).join(" "), false);
             if (!movefail) {
+                sendMultiplayerMessage("location", currentlocation);
                 userLook();
             };
             return 0;
         case "take":
         case "grab":
         case "pick":
-            if (!playing) { break; }
+            if (!playing)
+                break;
+
             var errcode = userTake(splitinput, false);
             switch (errcode) {
                 case 0: return 0;
@@ -549,7 +779,9 @@ var parseInputReal = function(input) {
             };
         case "look":
         case "l":
-            if (!playing) { break; }
+            if (!playing)
+                break;
+
             // Ensure the user is only looking. Items should have their own on_look_at handler
             if (splitinput.length == 1) {
                 userLook();
@@ -558,13 +790,38 @@ var parseInputReal = function(input) {
             break;
         case "wait":
         case "z":
-            if (!playing) { break; }
+            if (!playing)
+                break;
+
             show("You wait...");
             return 0;
         case "x":
-            splitinput[0] = "examine";
+            command = "examine";
             input = "examine " + input.substr(2);
             break;
+        case "join":
+            if (playing && !coreCommand)
+                break;
+
+            if (splitinput.length != 2) {
+                show("Error: Incorrect argument count. Correct usage: '/join <id>'.", "error");
+                return 3;
+            };
+            prepareConnect();
+            connectToPlayer(splitinput[1]);
+            return 1;
+        case "say":
+            if (!playing || !coreCommand)
+                break;
+
+            sendMultiplayerChatMessage(splitinput.slice(1).join(" "));
+            return 1;
+        case "username":
+            if (playing && !coreCommand)
+                break;
+
+            setUsername(splitinput.slice(1).join(" "));
+            return 1;
     };
 
     if (!playing) {
@@ -694,6 +951,7 @@ var executeActions = function(objectid) {
                     var index = inventory.indexOf(item);
                     if (index > -1) {
                         inventory.splice(index, 1);
+                        sendMultiplayerMessage("inventoryremove", item);
                     };
                 };
                 break;
@@ -701,6 +959,7 @@ var executeActions = function(objectid) {
                 for (item in itemlist) {
                     var item = itemlist[item];
                     inventory.push(item);
+                    sendMultiplayerMessage("inventoryadd", item);
                 };
                 break;
             case "drop":
@@ -709,6 +968,7 @@ var executeActions = function(objectid) {
                     var index = inventory.indexOf(item);
                     if (index > -1) {
                         inventory.splice(index, 1);
+                        sendMultiplayerMessage("inventoryremove", item);
                     };
                     addRoomItem(currentlocation, item);
                 };
@@ -723,21 +983,58 @@ var executeActions = function(objectid) {
     };
 };
 
+var setUsername = function(username) {
+    username = escapeHTML(username.trim());
+    if (!username) {
+        show("Please enter a valid name.", "error");
+        return;
+    };
+
+    window.username = username;
+
+    if (playing) {
+        sendMultiplayerMessage("name", window.username);
+        userLook();
+    } else {
+        // Check if a game URL has already been passed (example.com/HERITAGE/?url_to_load)
+        var toload = window.location.search.substring(1);
+        if (toload) {
+            parseInput("load " + toload);
+            return;
+        };
+        showHome();
+    };
+};
+
 var userLook = function() {
     if (rooms[currentlocation]["first_enter"] && (roomhistory.indexOf(currentlocation) == -1)) {
         show(format(rooms[currentlocation]["first_enter"]));
         roomhistory.push(currentlocation);
     } else {
-        show(format(rooms[currentlocation]["description"]));
+        var otherplayers = [];
+        for (var i = 0; i < window.conns.length; i++) {
+            if (window.conns[i]._location == currentlocation) {
+                otherplayers.push(window.conns[i]._nickname);
+            };
+        };
+        var roomdescription = format(rooms[currentlocation]["description"]);
+        if (otherplayers.length == 0) {
+            show(roomdescription);
+        } else if (otherplayers.length == 1) {
+            show(roomdescription + '\n\n' + otherplayers[0] + " is here too.");
+        } else {
+            show(roomdescription + '\n\n' + joinWithAnd(otherplayers) + " are here too.");
+        };
+        window.isLooking = true;
     };
 };
 
 var format = function(text) {
     /* Format and calculate text and its values
      * This format finds the most inner check, and then calculates outwards.
-     * 
-     * However, we only take care of #(changeVarValue)# in the second round, 
-     * because this action is destructive and should not be executed unless 
+     *
+     * However, we only take care of #(changeVarValue)# in the second round,
+     * because this action is destructive and should not be executed unless
      * we're sure all conditions are satisfied.
      *
      * Example order:
@@ -797,6 +1094,7 @@ var getVarValue = function(variable) {
      * _turn: get the current turn
      */
     switch(variable) {
+        case "_name": return window.username;
         case "_random": return parseInt(Math.random() * (100 - 1) + 1);
         case "_yesno": return parseInt(Math.random());
     };
@@ -814,8 +1112,12 @@ var getVarValue = function(variable) {
     return variables[variable];
 };
 
-var setVarValue = function(variable, value) {
+var setVarValue = function(variable, value, broadcast) {
+    broadcast = typeof broadcast !== 'undefined' ? broadcast : true;
     variables[variable] = value;
+    if (broadcast && variable[0] != "_") {
+        sendMultiplayerMessage("var", [variable, value]);
+    };
 };
 
 var calculateNewValue = function(variable, operator, value) {
@@ -839,7 +1141,7 @@ var calculateNewValue = function(variable, operator, value) {
 };
 
 var getOperator = function(text) {
-    /* I wanted to return the operator in the for loop here, otherwise null, 
+    /* I wanted to return the operator in the for loop here, otherwise null,
      * but JavaScript decided that readable code is a bad thing.
      */
     var operators = ["=", "+", "-", "/", "*", "%"];
@@ -863,7 +1165,7 @@ var echoVar = function(text) {
 };
 
 var calculateVarValue = function(text) {
-    /* Return the result of an operation on a variable, without changing the 
+    /* Return the result of an operation on a variable, without changing the
      * value of the original variable
      */
     var operator = getOperator(text);
@@ -901,7 +1203,7 @@ var changeVarValue = function(text) {
     };
 
     setVarValue(variable, calculateNewValue(variable, operator, value));
-    
+
     return;
 };
 
@@ -991,14 +1293,22 @@ var getRoomItems = function(roomname) {
     return founditems;
 };
 
-var addRoomItem = function(roomname, itemname) {
+var addRoomItem = function(roomname, itemname, broadcast) {
+    broadcast = typeof broadcast !== 'undefined' ? broadcast : true;
     rooms[roomname]["items"] += "," + itemname;
+    if (broadcast) {
+        sendMultiplayerMessage("roomitemadd", [roomname, itemname]);
+    };
 };
 
-var removeRoomItem = function(roomname, itemname) {
+var removeRoomItem = function(roomname, itemname, broadcast) {
+    broadcast = typeof broadcast !== 'undefined' ? broadcast : true;
     // TODO: This code doesn't care for edge cases /at all/. Could cause problems later on.
     itemindex = rooms[roomname]["items"].indexOf(itemname);
     rooms[roomname]["items"] = rooms[roomname]["items"].substr(0,itemindex) + rooms[roomname]["items"].substr(itemindex+itemname.length+1);
+    if (broadcast) {
+        sendMultiplayerMessage("roomitemremove", [roomname, itemname]);
+    };
 };
 
 var getRoomExits = function(roomname) {
@@ -1143,6 +1453,7 @@ var userTake = function(input) {
     if (arraylocation > -1) {
         if (items[itemname] && items[itemname]["allow_take"]) {
             inventory.push(itemname);
+            sendMultiplayerMessage("inventoryadd", itemname);
             removeRoomItem(currentlocation, itemname);
             show("You take the " + itemname + ".");
             return 0;
@@ -1153,5 +1464,245 @@ var userTake = function(input) {
     } else {
         show("I don't see any " + itemname + ".");
         return 4;
+    };
+};
+
+// Multiplayer functionality
+var startServer = function() {
+    if (playing != true) {
+        show("There doesn't seem to be any game in progress", "error");
+        return;
+    };
+
+    if (window.peer && window.peer.id) {
+        addToLog("A server is already running. Friends can join this game by typing '/join " + window.peer.id + "'");
+    } else {
+        prepareConnect();
+        window.peer.on('open', function(id) {
+            addToLog("Friends can join this game by typing '/join " + id + "'");
+        });
+    };
+};
+
+var prepareConnect = function() {
+    window.peerReconnectDelay = 0;
+    window.peer = new Peer({host: 'heritage.contracode.nl', port: 9000});
+    window.peer.on('open', function(id) {
+        addToLog("Connection to connection broker established");
+        window.peerReconnectDelay = 1000; // Reset exponential backoff
+        window.peer.on('connection', function(conn) {
+            multiplayerMain(conn);
+        });
+    });
+    window.peer.on('disconnected', function() {
+        // Don't try to reconnect if we killed the connection ourselves
+        if (!window.peer)
+            return;
+
+        if (!window.peerReconnectDelay) {
+            addToLog("Failed to start a multiplayer session, connection broker may be offline. Type '/start multiplayer' to try again");
+            return;
+        };
+
+        window.peerReconnectDelay = 1.5*window.peerReconnectDelay;
+        setTimeout(function() {
+            addToLog("Attempting to reconnect to connection broker");
+            window.peer.reconnect();
+        }, window.peerReconnectDelay);
+    });
+};
+
+var connectToPlayer = function(id) {
+    var conn = window.peer.connect(id, {reliable: true});
+    multiplayerMain(conn);
+};
+
+var multiplayerMain = function(conn) {
+    conn.on('open', function() {
+        conn._nickname = conn.peer;
+        conn._location = null;
+        window.conns.push(conn);
+        addToLog(conn._nickname + " joins the game");
+        conn.send(['name', window.username]);
+        addToLog("Sent name to " + conn._nickname);
+        conn.send(['sources', window.sources]);
+        addToLog("Sent game source to " + conn._nickname);
+        conn.send(['state', sessionify(false)]);
+        addToLog("Sent game state to " + conn._nickname);
+        conn.send(["location", currentlocation]);
+        announceNewPlayer(conn);
+        announceAllPlayers(conn);
+    });
+    conn.on('close', function() {
+        addToLog(conn._nickname + " left the game");
+        for (var i = 0; i < window.conns.length; i++) {
+            if (window.conns[i]._nickname === conn._nickname) {
+                window.conns.splice(i, 1);
+                if (window.isLooking) {
+                    userLook();
+                };
+                return;
+            };
+        };
+    });
+    conn.on('data', function(data) {
+        var type = data[0];
+        var data = data[1];
+
+        switch(type) {
+            case 'chat':
+                addToLog(conn._nickname + ' says, "' + data + '"');
+                break;
+            case 'state':
+                addToLog("Received game state from " + conn._nickname);
+                if (!playing) {
+                    loadSession(data);
+                    parseInput("start");
+                    conn.send(["location", currentlocation]);
+                } else {
+                    addToLog("...but don't need it, so ignoring");
+                };
+                break;
+            case "inventoryadd":
+                inventory.push(escapeHTML(data));
+                break;
+            case "inventoryremove":
+                var index = inventory.indexOf(escapeHTML(data));
+                if (index > -1) {
+                    inventory.splice(index, 1);
+                } else {
+                    addToLog("WARNING: Inventories out of sync!");
+                };
+                break;
+            case "location":
+                if (conn._location === data) break;
+                var lookAgain = false;
+
+                if (data === currentlocation) {
+                    addToLog(conn._nickname + " enters the room");
+                    lookAgain = true;
+                } else if (conn._location === currentlocation) {
+                    addToLog(conn._nickname + " leaves the room");
+                    lookAgain = true;
+                };
+
+                conn._location = data;
+                if (lookAgain && window.isLooking) {
+                    userLook();
+                };
+                break;
+            case "name":
+                data = data.trim();
+                if (!data) {
+                    // Empty strings are silly
+                    conn.send(["nameinuse", ""]);
+                };
+                if (escapeHTML(data) == window.username) {
+                    conn.send(["nameinuse", ""]);
+                    return;
+                };
+                for (var i = 0; i < window.conns.length; i++) {
+                    if (window.conns[i] != conn) {
+                        if (window.conns[i]._nickname == escapeHTML(data)) {
+                            conn.send(["nameinuse", ""]);
+                            return;
+                        };
+                    };
+                };
+                addToLog(conn._nickname + " is now known as " + data);
+                conn._nickname = escapeHTML(data);
+                break;
+            case "nameinuse":
+                show("Your chosen name, " + window.username + ", is already in use. Please choose a new name.", "error");
+                window.username = ""; // Force setting of username
+                break;
+            case "newplayer":
+                addToLog("Received request to connect to " + data);
+                if (window.peer.id == data) {
+                    addToLog("...but we are " + data);
+                    return;
+                };
+                for (var i = 0; i < window.conns.length; i++) {
+                    if (window.conns[i].peer == data) {
+                        addToLog("...but we are already connected to " + data);
+                        return;
+                    };
+                };
+
+                connectToPlayer(data);
+                addToLog("Connected to " + data);
+                break;
+            case "sources":
+                addToLog("Received game's source code from " + conn._nickname);
+                if (window.sources) {
+                    addToLog("...but don't need it, so ignoring");
+                    break;
+                };
+
+                window.sources = data;
+                saveGame(window.sources);
+                addToLog("Saved game to local library");
+                break;
+            case "roomitemadd":
+                addRoomItem(data[0], escapeHTML(data[1]), false);
+                if (window.isLooking && data[0] == currentlocation) {
+                    userLook();
+                };
+                break;
+            case "roomitemremove":
+                removeRoomItem(data[0], escapeHTML(data[1]), false);
+                if (window.isLooking && data[0] == currentlocation) {
+                    userLook();
+                };
+                break;
+            case "var":
+                setVarValue(data[0], escapeHTML(data[1]), false);
+                // Variable could possibly affect the current room
+                if (window.isLooking) {
+                    userLook();
+                };
+                break;
+            default:
+                addToLog("Unknown message type received from " + conn._nickname + ": " + type);
+        };
+    });
+};
+
+var sendMultiplayerMessage = function(type, message) {
+    for (var i = 0; i < window.conns.length; i++) {
+        window.conns[i].send([type, message]);
+    };
+};
+
+var sendMultiplayerChatMessage = function(message) {
+    sendMultiplayerMessage('chat', message);
+    addToLog('You say, "' + message + '"');
+};
+
+var announceNewPlayer = function(conn) {
+    for (var i = 0; i < window.conns.length; i++) {
+        if (window.conns[i].peer != conn.peer) {
+            window.conns[i].send(['newplayer', conn.peer]);
+        };
+    };
+};
+
+var announceAllPlayers = function(conn) {
+    for (var i = 0; i < window.conns.length; i++) {
+        if (window.conns[i].id == conn.id) {
+            if (window.conns[i].peer != conn.peer && window.conns[i].peer != window.peer.id) {
+                window.conns[i].send(['newplayer', window.conns[i].peer]);
+            };
+        };
+    };
+};
+
+var stopMultiplayer = function() {
+    if (window.peer) {
+        window.conns = [];
+        window.peer.destroy();
+        window.peer = null;
+
+        addToLog("Multiplayer connections closed. Type '/start multiplayer' to start a new multiplayer session");
     };
 };
