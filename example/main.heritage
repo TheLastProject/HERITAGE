@@ -2,6 +2,7 @@ info():
     title: Example Game
     author: HERITAGE
     license: CC0
+    version: 1
 
 /* Imports are a totally optional feature to allow us to organise our game */
 /* files more nicely. We could also simply put all functionality here. */

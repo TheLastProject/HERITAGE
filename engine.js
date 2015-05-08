@@ -393,7 +393,11 @@ var initComplete = function(gamedata, imports) {
         var currentmode = newmode;
     };
 
-    window.sources["gameinfo"] = gameinfo;
+    window.sources["gameinfo"] = {};
+    for (info in gameinfo) {
+        window.sources["gameinfo"][info] = gameinfo[info].trim();
+    };
+
     saveGame(window.sources);
 
     currentlocation = "0.0.0";
@@ -642,7 +646,7 @@ var parseInputReal = function(input) {
 
             var toShow = ["To load a game, type 'load' followed by the game number.<br/>To get a list of games in progress, type 'saves'.<br/>"];
             JSON.parse(localStorage.getItem('games')).forEach(function( gamedata ) {
-                toShow.push(toShow.length + ". " + gamedata["gameinfo"]["title"] + " by " + gamedata["gameinfo"]["author"] + " (version " + gamedata["version"] + ")");
+                toShow.push(toShow.length + ". " + gamedata["gameinfo"]["title"] + " by " + gamedata["gameinfo"]["author"] + " (version " + gamedata["gameinfo"]["version"] + ")");
             });
             show(toShow.join("<br />"), "html");
             return 1;
