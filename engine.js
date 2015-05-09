@@ -680,7 +680,7 @@ var parseInputReal = function(input) {
 
             var toShow = ["To restore a session, type 'loadsave' followed by the session number.<br />"];
             JSON.parse(localStorage.getItem('savedGames')).forEach(function( sessiondata ) {
-                toShow.push(toshow.length + ". " + sessiondata["gameinfo"]["title"] + " by " + sessiondata["gameinfo"]["author"] + " (" + new Date(sessiondata["savetime"]).toString() + ")");
+                toShow.push(toShow.length + ". " + sessiondata["gameinfo"]["title"] + " by " + sessiondata["gameinfo"]["author"] + " (" + new Date(sessiondata["savetime"]).toString() + ")");
             });
             show(toShow.join("<br />"), "html");
             return 1;
@@ -696,6 +696,7 @@ var parseInputReal = function(input) {
 
             if (splitinput.length > 1) {
                 loadSessionFromLocalStorage(splitinput[1]);
+                parseInput("start");
             } else {
                 show("Error: Incorrect argument count. Correct usage: 'loadsave <savenumber>'.", "error");
             }
@@ -1083,7 +1084,12 @@ var format = function(text) {
             case "$": var newtext = formatVariableText(manipulatetext); break;
         };
 
-        text = text.substr(0, start) + newtext + text.substr(minindex + closingposition + 2);
+        if (!newtext) {
+            text = text.substr(0, start).replace(/\n$/, '') + text.substr(minindex + closingposition + 2);
+        } else {
+            text = text.substr(0, start) + newtext + text.substr(minindex + closingposition + 2);
+        };
+
         minindex = 0;
     };
 
