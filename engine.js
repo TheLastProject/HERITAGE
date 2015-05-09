@@ -27,6 +27,11 @@ $(document).ready( function() {
     // Register empty command history command
     window.commandhistory = [];
     window.commandposition = 0;
+
+    // Necessary for fading
+    window.showQueue = [];
+    window.isFading = false;
+
     window.isLooking = false;
 
     window.peer = null; // Multiplayer connectivity
@@ -77,22 +82,22 @@ $(document).ready( function() {
     window.addEventListener("beforeunload", function( event ) {
         stopMultiplayer();
         stopGame();
-        show("");
     });
 
-    show("Who will be going on adventure today?");
+    $("#message").html("<p>Who will be going on adventure today?</p>");
 });
 
 var showHome = function() {
-    show('<p>Hello ' + window.username + ', welcome to HERITAGE.</p><p>Heritage Equals Retro Interpreting Text Adventure Game Engine.</p><p>Type "help" for help.</p>', "html");
+    var toShow = '<p>Hello ' + window.username + ', welcome to HERITAGE.</p><p>Heritage Equals Retro Interpreting Text Adventure Game Engine.</p><p>Type "help" for help.</p>';
     if (supports_html_storage && localStorage.length > 0) {
         if (localStorage.games && localStorage.games.length > 0) {
-            show($("#message").html() + "Cached games found. Type 'games' for a list of local games, or 'cleargames' to delete all locally cached games.</p><p>", "html");
+            toShow += "Cached games found. Type 'games' for a list of local games, or 'cleargames' to delete all locally cached games.</p><p>";
         };
         if (localStorage.savedGames && localStorage.savedGames.length > 0) {
-            show($("#message").html() + "Saved sessions found. Type 'loadsave' to load a saved session, or 'clearsaves' to delete all sessions in progress.", "html");
+            toShow += "Saved sessions found. Type 'loadsave' to load a saved session, or 'clearsaves' to delete all sessions in progress.";
         };
     };
+    show(toShow, "html");
 };
 
 var supports_html_storage = function () {
@@ -267,8 +272,30 @@ var loadSession = function(session) {
     };
 };
 
-var show = function(message, type) {
+var show = function(message, type, animate) {
+    animate = typeof animate !== 'undefined' ? animate : true;
     window.isLooking = false;
+    window.showQueue.push([message, type]);
+    if (!window.isFading && animate) {
+        window.isFading = true;
+        $('#message').fadeOut('fast', function() {
+            showMain();
+            $('#message').fadeIn('fast');
+            window.isFading = false;
+        });
+    } else {
+        showMain();
+    };
+};
+
+var showMain = function() {
+    if (window.showQueue.length == 0)
+        return;
+
+    var data = window.showQueue[window.showQueue.length-1];
+    window.showQueue = [];
+    var message = data[0];
+    var type = data[1];
     if (typeof(variables) != "undefined" && getVarValue("_game_over")) {
         type = "game_over";
     };
@@ -281,11 +308,11 @@ var show = function(message, type) {
     };
 
     switch (type) {
-        case "error": $("#message").html("<span class='error'>" + message + "</span>"); break;
+        case "error": $("#message").html("<span class='error'><p>" + message + "</p></span>"); break;
         case "html": $("#message").html("<p>" + message + "</p>"); break;
-        case "game_over": $("#message").html("<p>" + message + "</p><p class='error'>GAME OVER<br />Type 'start' to replay, or 'load' another game.</p>"); playing = false; stopMultiplayer(); break;
+        case "game_over": $("#message").html("<p>" + message + "</p><p class='error'>GAME OVER<br  />Type 'start' to replay, or 'load' another game.</p>"); playing = false; stopMultiplayer(); break;
         default: $("#message").html("<p>" + message + "</p>");
-    }
+    };
 };
 
 var addToLog = function(message) {
@@ -801,7 +828,7 @@ var parseInputReal = function(input) {
             show("You wait...");
             return 0;
         case "x":
-            command = "examine";
+            splitinput[0] = "examine";
             input = "examine " + input.substr(2);
             break;
         case "join":
@@ -1011,7 +1038,8 @@ var setUsername = function(username) {
     };
 };
 
-var userLook = function() {
+var userLook = function(animate) {
+    animate = typeof animate !== 'undefined' ? animate : true;
     if (rooms[currentlocation]["first_enter"] && (roomhistory.indexOf(currentlocation) == -1)) {
         show(format(rooms[currentlocation]["first_enter"]));
         roomhistory.push(currentlocation);
@@ -1024,11 +1052,11 @@ var userLook = function() {
         };
         var roomdescription = format(rooms[currentlocation]["description"]);
         if (otherplayers.length == 0) {
-            show(roomdescription);
+            show(roomdescription, 'text', animate);
         } else if (otherplayers.length == 1) {
-            show(roomdescription + '\n\n' + otherplayers[0] + " is here too.");
+            show(roomdescription + '\n\n' + otherplayers[0] + " is here too.", 'text', animate);
         } else {
-            show(roomdescription + '\n\n' + joinWithAnd(otherplayers) + " are here too.");
+            show(roomdescription + '\n\n' + joinWithAnd(otherplayers) + " are here too.", 'text', animate);
         };
         window.isLooking = true;
     };
@@ -1598,7 +1626,7 @@ var multiplayerMain = function(conn) {
 
                 conn._location = data;
                 if (lookAgain && window.isLooking) {
-                    userLook();
+                    userLook(false);
                 };
                 break;
             case "name":
@@ -1656,20 +1684,20 @@ var multiplayerMain = function(conn) {
             case "roomitemadd":
                 addRoomItem(data[0], escapeHTML(data[1]), false);
                 if (window.isLooking && data[0] == currentlocation) {
-                    userLook();
+                    userLook(false);
                 };
                 break;
             case "roomitemremove":
                 removeRoomItem(data[0], escapeHTML(data[1]), false);
                 if (window.isLooking && data[0] == currentlocation) {
-                    userLook();
+                    userLook(false);
                 };
                 break;
             case "var":
                 setVarValue(data[0], escapeHTML(data[1]), false);
                 // Variable could possibly affect the current room
                 if (window.isLooking) {
-                    userLook();
+                    userLook(false);
                 };
                 break;
             default:

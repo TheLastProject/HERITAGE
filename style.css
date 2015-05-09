@@ -15,10 +15,17 @@ input
     border: 0px;
 }
 
-#logo
+#header
 {
+    width: 100%;
+    font-size: 36px;
     background-color: white;
     color: black;
+}
+
+#logo
+{
+    margin-left: 6px;
 }
 
 #content
