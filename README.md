@@ -3,6 +3,8 @@ HERITAGE
 
 Heritage Equals Retro Interpreting Text Adventure Game Engine
 
+![screenshot](/screenshot.png)
+
 What is HERITAGE?
 =================
 
