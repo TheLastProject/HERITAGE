@@ -37,8 +37,8 @@ to your web server. Any basic web server will do, as HERITAGE runs completely
 client-side.
 
 To add custom games for easy loading, place them in a subdirectory with the
-preferred game. For example, the example game, named 'example', can be loaded
-using 'load example'.
+preferred name. For example, the example game can be loaded using
+'load example', because it is placed in the directory called 'example'.
 
 LICENSE
 =======
