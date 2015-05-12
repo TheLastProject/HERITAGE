@@ -4,8 +4,8 @@ info():
     license: CC0
     version: 1
 
-/* Imports are a totally optional feature to allow us to organise our game */
-/* files more nicely. We could also simply put all functionality here. */
+/* Imports are a totally optional feature to allow us to organise our game
+   files more nicely. We could also simply put all functionality here. */
 
 /* Import as many or as little files as you like. */
 import(vars)

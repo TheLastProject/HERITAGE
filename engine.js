@@ -392,7 +392,9 @@ var initStepTwo = function(importqueue) {
 
 var initComplete = function(gamedata, imports) {
     // Load all the game data into Javascript variables so that it can be played
-    currentsetting = "";
+    var currentsetting = "";
+    var currentmode = null;
+    var comment = false;
     gameinfo = {};
     variables = {"_game_over": 0, "_turn": 0, "_write_to": 0};
     rooms = {};
@@ -401,15 +403,55 @@ var initComplete = function(gamedata, imports) {
     actions = {};
     exits = {};
     inventory = [];
-    currentmode = null;
 
     for (var linenumber = 0; linenumber < gamedata.length; linenumber++) {
         show("Parsing game... (" + linenumber + "/" + gamedata.length + ")");
 
-        var gameline = gamedata[linenumber].replace(/\/\*.*?\*\//g, "").trim(); // Trim the line and remove all comments
+        var gameline = gamedata[linenumber];
+        var fullcomment = false;
+
+        // Remove comments
+        while (gameline) {
+            if (comment) {
+                var match = gameline.indexOf("*/");
+                if (match == -1) {
+                    fullcomment = true;
+                    break;
+                };
+
+                comment = false;
+
+                gameline = gameline.slice(match + 2);
+                if (!gameline) {
+                    fullcomment = true;
+                    break;
+                };
+            } else {
+                gameline = gameline.replace(/\/\*.*?\*\//g, "");
+                if (!gameline) {
+                    fullcomment = true;
+                    break;
+                };
+
+                var match = gameline.indexOf("/*");
+                if (match == -1) {
+                    break;
+                };
+
+                comment = true;
+
+                gameline = gameline.slice(0, match);
+                if (!gameline) {
+                    fullcomment = true;
+                    break;
+                };
+            };
+        };
 
         // Prevent HERITAGE from showing a blank line if the line is completely comment
-        if (!gameline && gamedata[linenumber].trim()) continue;
+        if (fullcomment) continue;
+
+        gameline = gameline.trim();
 
         if (gameline.substr(0,7) == "import(") continue;
 
