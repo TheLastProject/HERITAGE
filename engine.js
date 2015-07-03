@@ -1349,7 +1349,7 @@ var findSingle = function(string, seperator) {
 };
 
 var getRoomItems = function(roomname) {
-    var itemlist = format(rooms[roomname]["items"]).replace(/ /g,'').split(",");
+    var itemlist = format(rooms[roomname]["items"]).replace(/ *, */g,',').trim().split(",");
     var founditems = [];
     for (item in itemlist) {
         item = itemlist[item];
@@ -1528,7 +1528,7 @@ var userTake = function(input) {
      */
     if (input.length > 2 && input[0] == "pick" && input[1] != "up") { return 2; };
     if (input.length == 1) { return 1; };
-    itemname = input[input.length-1];
+    itemname = input.join(' ').replace(/^take |^grab |^pick up /,'');
     arraylocation = getRoomItems(currentlocation).indexOf(itemname);
     if (arraylocation > -1) {
         if (items[itemname] && items[itemname]["allow_take"]) {
