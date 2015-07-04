@@ -950,21 +950,21 @@ var parseInputReal = function(input) {
             // Translate synonym
             var itemdata = item.substr(4).split(":");
             var item = itemdata[1];
-            var inputitemname = itemdata[0].split("_");
+            var inputitemname = itemdata[0].split(" ");
         }
         if (item.indexOf(".") > -1) {
             var itemdata = item.split(".");
-            var itemname = itemdata[0].split("_");
+            var itemname = itemdata[0].split(" ");
             var iteminstance = "." + itemdata[1];
         } else {
-            var itemname = item.split("_");
+            var itemname = item.split(" ");
             var iteminstance = "";
         }
         if (!inputitemname) { var inputitemname = itemname; };
-        if (splitinput.slice(-itemname.length).join("_") == inputitemname.join("_") ) {
+        if (splitinput.slice(-itemname.length).join(" ") == inputitemname.join(" ") ) {
             var itemhandler = splitinput.slice(0, splitinput.length-inputitemname.length);
             var tofind = "on_" + itemhandler.join("_");
-            var itemfind = inputitemname.join("_") + iteminstance;
+            var itemfind = inputitemname.join(" ") + iteminstance;
             if (items[itemfind] && items[itemfind][tofind]) {
                 show(format(items[itemfind][tofind]));
                 return 0;
@@ -982,7 +982,7 @@ var parseInputReal = function(input) {
 
 var conditionsSatisfied = function(objectid) {
     for (condition in objectid) {
-        var conditions = objectid[condition].replace(/ /g, "").split(",");
+        var conditions = objectid[condition].replace(/ *, */g,',').trim().split(",");
         switch (condition) {
             case "require_location":
                 var requiredlocation = conditions[0];
@@ -1017,7 +1017,7 @@ var conditionsSatisfied = function(objectid) {
 
 var executeActions = function(objectid) {
     for (action in objectid) {
-        var itemlist = objectid[action].replace(/ /g, "").split(",");
+        var itemlist = objectid[action].replace(/ *, */g,',').trim().split(",");
         switch (action) {
             case "lose":
                 for (item in itemlist) {
@@ -1304,14 +1304,14 @@ var formatVariableText = function(text) {
     var tocheck = {};
     if (requirement_type[0] == "!") {
         var requirement_type = requirement_type.substr(1);
-        tocheck[requirement_type] = requirement.replace(/ /g,'');
+        tocheck[requirement_type] = requirement.trim();
         if (!conditionsSatisfied(tocheck)) {
             text = text_if_true;
         } else {
             text = text_if_false;
         };
     } else {
-        tocheck[requirement_type] = requirement.replace(/ /g,'');
+        tocheck[requirement_type] = requirement.trim();
         if (conditionsSatisfied(tocheck)) {
             text = text_if_true;
         } else {
