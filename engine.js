@@ -199,6 +199,11 @@ var loadGameFromLocalStorage = function(id) {
     initStepTwo(0);
 };
 
+/**
+ * Load a session from local storage
+ * @param {int} id - The ID of the session to load
+ * @returns {boolean} success - true if the ID exists, false if it doesn't
+ */
 var loadSessionFromLocalStorage = function(id) {
     loadedgame = id - 1; // Save the game's slot so we can override it later
 
@@ -206,10 +211,11 @@ var loadSessionFromLocalStorage = function(id) {
 
     if (!sessions[loadedgame]) {
         show("Could not find session with id " + id);
-        return;
+        return false;
     };
 
     loadSession(sessions[loadedgame]);
+    return true;
 };
 
 var loadSession = function(session) {
@@ -764,8 +770,8 @@ var parseInputReal = function(input) {
             }
 
             if (splitinput.length > 1) {
-                loadSessionFromLocalStorage(splitinput[1]);
-                parseInput("start");
+                if (loadSessionFromLocalStorage(splitinput[1]))
+                    parseInput("start");
             } else {
                 show("Error: Incorrect argument count. Correct usage: 'loadsave <savenumber>'.", "error");
             }
